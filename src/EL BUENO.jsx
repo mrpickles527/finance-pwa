@@ -94,43 +94,17 @@ const INIT_CATS = [
   ]},
 ];
 
-const INIT_TXS = [
-  { id: 1, tipo: "ingreso", monto: 8500, catId: "ingresos", subId: "salario", cuentaId: "nu_nom", fecha: "2026-04-01", nota: "Quincena 1 abril" },
-  { id: 2, tipo: "gasto", monto: 2100, catId: "deudas", subId: "deuda_pasiva", cuentaId: "nu_nom", fecha: "2026-04-01", nota: "Pago moto" },
-  { id: 3, tipo: "gasto", monto: 350, catId: "gastos_fijos", subId: "att", cuentaId: "nu_nom", fecha: "2026-04-01", nota: "" },
-  { id: 4, tipo: "gasto", monto: 344, catId: "movilidad", subId: "gasolina", cuentaId: "nu_nom", fecha: "2026-04-03", nota: "" },
-  { id: 5, tipo: "gasto", monto: 480, catId: "comida", subId: "despensa", cuentaId: "nu_nom", fecha: "2026-04-04", nota: "" },
-  { id: 6, tipo: "gasto", monto: 95, catId: "otros", subId: "herramienta", cuentaId: "nu_nom", fecha: "2026-04-02", nota: "" },
-  { id: 7, tipo: "gasto", monto: 120, catId: "tiempo_libre", subId: "capricho", cuentaId: "tdc_nu", fecha: "2026-04-04", nota: "" },
-  { id: 8, tipo: "gasto", monto: 200, catId: "salud", subId: "higiene", cuentaId: "nu_nom", fecha: "2026-03-28", nota: "Skincare" },
-  { id: 9, tipo: "gasto", monto: 450, catId: "gastos_fijos", subId: "psico", cuentaId: "nu_nom", fecha: "2026-03-16", nota: "" },
-  { id: 10, tipo: "gasto", monto: 1600, catId: "educacion", subId: "uni", cuentaId: "nu_nom", fecha: "2026-03-01", nota: "" },
-  { id: 11, tipo: "ingreso", monto: 8500, catId: "ingresos", subId: "salario", cuentaId: "nu_nom", fecha: "2026-03-16", nota: "Quincena 2 marzo" },
-];
+const INIT_TXS = [];
 
 const INIT_PRESUPUESTO = {
-  q1: [
-    { id: "p1", nombre: "Moto (deuda)", emoji: "🏍️", monto: 2100, frecuencia: "Mensual", pagado: false },
-    { id: "p2", nombre: "AT&T", emoji: "📞", monto: 200, frecuencia: "Mensual", pagado: false },
-    { id: "p3", nombre: "Uni", emoji: "🎓", monto: 1600, frecuencia: "Mensual", pagado: true },
-    { id: "p4", nombre: "Proteína", emoji: "🥛", monto: 600, frecuencia: "Mensual", pagado: false },
-    { id: "p5", nombre: "Gasolina", emoji: "⛽", monto: 300, frecuencia: "Quincena", pagado: false },
-    { id: "p6", nombre: "Comida", emoji: "🥩", monto: 600, frecuencia: "Quincena", pagado: false },
-  ],
-  q2: [
-    { id: "q1", nombre: "Barber", emoji: "✂️", monto: 100, frecuencia: "Mensual", pagado: false },
-    { id: "q2", nombre: "Gasolina", emoji: "⛽", monto: 300, frecuencia: "Quincena", pagado: false },
-    { id: "q3", nombre: "Comida", emoji: "🥩", monto: 600, frecuencia: "Quincena", pagado: false },
-    { id: "q4", nombre: "Psicológico", emoji: "🧠", monto: 450, frecuencia: "Mensual", pagado: false },
-    { id: "q5", nombre: "Ahorro", emoji: "🌱", monto: 500, frecuencia: "Quincena", pagado: false },
-    { id: "q6", nombre: "Renta (apoyo)", emoji: "🏠", monto: 2000, frecuencia: "Mensual", pagado: false },
-  ],
+  q1: [],
+  q2: [],
 };
 
 const INIT_CFG = {
-  ingreso_quincena: 8500, horas_dia: 8, dias_semana: 5,
+  ingreso_quincena: 0, horas_dia: 8, dias_semana: 5,
   horas_extra: 0, ingreso_extra: 0,
-  nombre: "Mr. Pickles", meta_ahorro_pct: 20, meta_deuda_pct: 25,
+  nombre: "", meta_ahorro_pct: 20, meta_deuda_pct: 25,
 };
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
