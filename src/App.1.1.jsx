@@ -23,82 +23,80 @@ const INIT_ACCOUNTS = [
   { id: "deudas", nombre: "Deudas", emoji: "⛓️", tipo: "Pasivo", color: C.red },
 ];
 
-// ── CATEGORIES ───────────────────────────────────────────────────────────────
+// ── CATEGORIES ─────────────────────────────────────────────────────────────
 const INIT_CATS = [
-  { id: "deudas", nombre: "Deudas", emoji: "⛓️", color: C.red, subs: [
-    { id: "moto_deuda", nombre: "Moto", emoji: "🏍️" },
-    { id: "didi_deuda", nombre: "DIDI", emoji: "🏷️" },
-    { id: "deuda_buena", nombre: "Deuda buena", emoji: "💰" },
-    { id: "deuda_pasiva", nombre: "Deuda pasiva", emoji: "📊" },
+  { id: "deudas", nombre: "Deudas", emoji: "💳", color: "#E53E3E", subs: [
+    { id: "deuda_pasiva", nombre: "Deuda pasiva", emoji: "🔴" },
+    { id: "deuda_buena", nombre: "Deuda buena", emoji: "🟢" },
+    { id: "prestamo", nombre: "Préstamo", emoji: "🏦" },
   ]},
-  { id: "gastos_fijos", nombre: "Gastos fijos", emoji: "📌", color: "#3498DB", subs: [
-    { id: "att", nombre: "AT&T", emoji: "📞" },
-    { id: "gym", nombre: "GYM", emoji: "🏆" },
-    { id: "prote", nombre: "Prote", emoji: "🥛" },
-    { id: "psico", nombre: "Psicológico", emoji: "🧠" },
-    { id: "tanda", nombre: "Tanda", emoji: "🔄" },
-    { id: "barber", nombre: "Barber", emoji: "✂️" },
+  { id: "vivienda", nombre: "Vivienda", emoji: "🏠", color: "#C05621", subs: [
+    { id: "gastos_hogar", nombre: "Gastos del hogar", emoji: "🧹" },
   ]},
-  { id: "movilidad", nombre: "Movilidad", emoji: "🏍️", color: C.gold, subs: [
-    { id: "gasolina", nombre: "Gasolina", emoji: "⛽" },
-    { id: "servicio", nombre: "Servicio moto", emoji: "🔧" },
-    { id: "uber", nombre: "Uber", emoji: "🚗" },
+  { id: "movilidad", nombre: "Movilidad", emoji: "🏍️", color: "#DD6B20", subs: [
+    { id: "moto_mant", nombre: "Mantenimiento moto", emoji: "🔧" },
     { id: "transporte", nombre: "Transporte", emoji: "🚌" },
+    { id: "uber", nombre: "Uber", emoji: "🚗" },
   ]},
-  { id: "comida", nombre: "Comida", emoji: "🍽️", color: "#E67E22", subs: [
-    { id: "despensa", nombre: "Despensa", emoji: "🥩" },
-    { id: "restaurante", nombre: "Restaurante", emoji: "🍔" },
-    { id: "antojo", nombre: "Antojo / Basura", emoji: "💩" },
-    { id: "cafe", nombre: "Café", emoji: "☕" },
+  { id: "comida", nombre: "Comida", emoji: "🍽️", color: "#38A169", subs: [
+    { id: "gusto", nombre: "Gusto", emoji: "🍕" },
+    { id: "basura", nombre: "Basura", emoji: "🍬" },
   ]},
-  { id: "educacion", nombre: "Educación", emoji: "🎓", color: "#9B59B6", subs: [
-    { id: "uni", nombre: "Uni", emoji: "🎓" },
-    { id: "certif", nombre: "Certificaciones", emoji: "📚" },
-    { id: "cursos", nombre: "Cursos online", emoji: "💻" },
-    { id: "libros", nombre: "Libros", emoji: "📖" },
-  ]},
-  { id: "salud", nombre: "Salud", emoji: "❤️", color: "#E74C3C", subs: [
-    { id: "higiene", nombre: "Higiene / Skincare", emoji: "✨" },
-    { id: "medico", nombre: "Médico", emoji: "🏥" },
+  { id: "salud", nombre: "Salud", emoji: "🏥", color: "#319795", subs: [
+    { id: "salud_general", nombre: "Salud general", emoji: "🩺" },
     { id: "farmacia", nombre: "Farmacia", emoji: "💊" },
+    { id: "fisio", nombre: "Fisio", emoji: "🦴" },
   ]},
-  { id: "tiempo_libre", nombre: "Tiempo libre", emoji: "🎲", color: "#1ABC9C", subs: [
-    { id: "capricho", nombre: "Capricho", emoji: "🕯️" },
-    { id: "ropa", nombre: "Ropa", emoji: "👕" },
-    { id: "salida", nombre: "Salida / Plan", emoji: "🎉" },
-    { id: "trabajuguete", nombre: "Trabajuguete", emoji: "🎯" },
-    { id: "vacacion", nombre: "Vacaciones", emoji: "🏖️" },
+  { id: "educacion", nombre: "Educación", emoji: "📚", color: "#805AD5", subs: [
+    { id: "papeleria", nombre: "Papelería", emoji: "✏️" },
+    { id: "trabajuguetes", nombre: "Trabajuguetes", emoji: "🛠️" },
+    { id: "herramientas", nombre: "Herramientas", emoji: "⚙️" },
   ]},
-  { id: "vivienda", nombre: "Vivienda", emoji: "🏠", color: "#27AE60", subs: [
-    { id: "renta", nombre: "Renta", emoji: "🔑" },
-    { id: "apoyo_casa", nombre: "Apoyo casa", emoji: "🏡" },
-    { id: "hogar", nombre: "Hogar / Mantenimiento", emoji: "🛋️" },
+  { id: "estilo", nombre: "Ropa & Estilo", emoji: "👕", color: "#D53F8C", subs: [
+    { id: "ropa", nombre: "Ropa", emoji: "👗" },
   ]},
-  { id: "ahorro", nombre: "Ahorro / Inversión", emoji: "🌱", color: C.green, subs: [
-    { id: "fondo_emerg", nombre: "Fondo emergencia", emoji: "🛡️" },
-    { id: "inversion", nombre: "Inversión", emoji: "📈" },
-    { id: "cajita", nombre: "Cajita NU", emoji: "📦" },
+  { id: "tiempo_libre", nombre: "Tiempo Libre", emoji: "🎯", color: "#D69E2E", subs: [
+    { id: "caprichos", nombre: "Caprichos", emoji: "✨" },
+    { id: "apuestas", nombre: "Apuestas", emoji: "🎲" },
+    { id: "ocio", nombre: "Ocio / Salidas", emoji: "🎉" },
   ]},
-  { id: "ingresos", nombre: "Ingresos", emoji: "⬆️", color: C.green, subs: [
+  { id: "ahorro", nombre: "Ahorro / Inversión", emoji: "💰", color: "#2F855A", subs: [
+    { id: "cajitas", nombre: "Cajitas NU", emoji: "🪙" },
+    { id: "premios", nombre: "Premios", emoji: "🏆" },
+  ]},
+  { id: "ingresos", nombre: "Ingresos", emoji: "⬆️", color: "#2ECC71", subs: [
     { id: "salario", nombre: "Salario", emoji: "🏢" },
     { id: "freelance", nombre: "Freelance", emoji: "💻" },
     { id: "didi_ing", nombre: "DIDI / Delivery", emoji: "🛵" },
     { id: "tanda_ing", nombre: "Tanda", emoji: "💵" },
     { id: "otro_ing", nombre: "Otro ingreso", emoji: "⬆️" },
   ]},
-  { id: "otros", nombre: "Otros", emoji: "📦", color: C.textDim, subs: [
-    { id: "mascota", nombre: "Mascotas", emoji: "🐕" },
-    { id: "regalo", nombre: "Regalos", emoji: "🎁" },
-    { id: "herramienta", nombre: "Herramientas", emoji: "🔨" },
-    { id: "otro", nombre: "Otro", emoji: "🏷️" },
+  { id: "otros", nombre: "Otros", emoji: "📦", color: "#718096", subs: [
+    { id: "otros_general", nombre: "Otros", emoji: "🔹" },
   ]},
 ];
 
 const INIT_TXS = [];
 
 const INIT_PRESUPUESTO = {
-  q1: [],
-  q2: [],
+  q1: [
+    { id: "renta", nombre: "Renta", emoji: "🏠", monto: 2000, frecuencia: "Mensual", pagado: false },
+    { id: "moto", nombre: "Moto", emoji: "🏍️", monto: 4200, frecuencia: "Mensual", pagado: false },
+    { id: "comida_real", nombre: "Comida real", emoji: "🥩", monto: 1600, frecuencia: "Mensual", pagado: false },
+    { id: "uni", nombre: "Uni", emoji: "🎓", monto: 1600, frecuencia: "Mensual", pagado: false },
+    { id: "gym", nombre: "GYM", emoji: "🏆", monto: 450, frecuencia: "Mensual", pagado: false },
+    { id: "att", nombre: "AT&T", emoji: "📞", monto: 200, frecuencia: "Mensual", pagado: false },
+    { id: "casa", nombre: "Casa", emoji: "🏡", monto: 1000, frecuencia: "Mensual", pagado: false },
+    { id: "barber", nombre: "Barber", emoji: "✂️", monto: 100, frecuencia: "Mensual", pagado: false },
+    { id: "psicologo", nombre: "Psicólogo", emoji: "🧠", monto: 600, frecuencia: "Quincenal", pagado: false },
+    { id: "gas", nombre: "Gas", emoji: "⛽", monto: 285, frecuencia: "Semanal", pagado: false },
+  ],
+  q2: [
+    { id: "moto_q2", nombre: "Moto", emoji: "🏍️", monto: 4200, frecuencia: "Mensual", pagado: false },
+    { id: "comida_real_q2", nombre: "Comida real", emoji: "🥩", monto: 1600, frecuencia: "Mensual", pagado: false },
+    { id: "psicologo_q2", nombre: "Psicólogo", emoji: "🧠", monto: 600, frecuencia: "Quincenal", pagado: false },
+    { id: "gas_q2", nombre: "Gas", emoji: "⛽", monto: 285, frecuencia: "Semanal", pagado: false },
+  ],
 };
 
 const INIT_CFG = {
