@@ -16,11 +16,8 @@ const C = {
 // ── ACCOUNTS ─────────────────────────────────────────────────────────────────
 const INIT_ACCOUNTS = [
   { id: "nu_nom", nombre: "NU Nómina", emoji: "🏦", tipo: "Débito", color: C.purple },
-  { id: "nu_caj1", nombre: "NU Cajita Gastos", emoji: "📦", tipo: "Cajita", color: "#8E44AD" },
-  { id: "nu_caj2", nombre: "NU Cajita Ahorro", emoji: "🌱", tipo: "Cajita", color: C.green },
-  { id: "tdc_nu", nombre: "TDC NU", emoji: "💳", tipo: "Crédito", color: C.gold },
+  { id: "tdc", nombre: "TDC", emoji: "💳", tipo: "Crédito", color: C.gold },
   { id: "efectivo", nombre: "Efectivo", emoji: "💵", tipo: "Cash", color: "#27AE60" },
-  { id: "deudas", nombre: "Deudas", emoji: "⛓️", tipo: "Pasivo", color: C.red },
 ];
 
 // ── CATEGORIES ─────────────────────────────────────────────────────────────
@@ -636,6 +633,7 @@ function AnalisisTab({ txs, cats, cfg, rate }) {
 function PlanTab({ presupuesto, setPresupuesto, cfg, rate }) {
   const [quincena, setQuincena] = useState(1);
   const [showAdd, setShowAdd] = useState(false);
+  const [editItem, setEditItem] = useState(null);
   const [newItem, setNewItem] = useState({ nombre: "", emoji: "💸", monto: "", frecuencia: "Quincena" });
 
   const qKey = `q${quincena}`;
@@ -661,6 +659,11 @@ function PlanTab({ presupuesto, setPresupuesto, cfg, rate }) {
     setPresupuesto(p => ({ ...p, [qKey]: [...p[qKey], { id: Date.now().toString(), nombre: newItem.nombre, emoji: newItem.emoji, monto: parseFloat(newItem.monto), frecuencia: newItem.frecuencia, pagado: false }] }));
     setNewItem({ nombre: "", emoji: "💸", monto: "", frecuencia: "Quincena" });
     setShowAdd(false);
+  }
+  function saveEdit() {
+    if (!editItem) return;
+    setPresupuesto(p => ({ ...p, [qKey]: p[qKey].map(i => i.id === editItem.id ? { ...i, nombre: editItem.nombre, emoji: editItem.emoji, monto: parseFloat(editItem.monto) || i.monto, frecuencia: editItem.frecuencia } : i) }));
+    setEditItem(null);
   }
 
   return (
@@ -745,7 +748,9 @@ function PlanTab({ presupuesto, setPresupuesto, cfg, rate }) {
                 <div style={{ fontSize: 14, fontWeight: 500 }}>{item.nombre}</div>
                 <div style={{ fontSize: 11, color: C.textDim }}>{item.frecuencia} · <span style={{ color: C.gold, fontFamily: "'Space Mono',monospace" }}>{toTime(item.monto, rate, cfg.horas_dia)}</span></div>
               </div>
-              <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 14, fontWeight: 700 }}>{fmt(item.monto)}</span>
+              <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 14, fontWeight: 700, marginRight: 8 }}>{fmt(item.monto)}</span>
+              <button onClick={() => setEditItem({ ...item, monto: String(item.monto) })} style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 8, padding: "4px 8px", color: C.textDim, fontSize: 11, cursor: "pointer", fontFamily: "'Sora',sans-serif", marginRight: 4 }}>✏️</button>
+              <button onClick={() => del(item.id)} style={{ background: "none", border: `1px solid ${C.red}44`, borderRadius: 8, padding: "4px 8px", color: C.red, fontSize: 13, cursor: "pointer", lineHeight: 1 }}>×</button>
             </div>
           ))}
         </div>
@@ -768,20 +773,58 @@ function PlanTab({ presupuesto, setPresupuesto, cfg, rate }) {
       </div>
 
       {showAdd && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.9)", backdropFilter: "blur(8px)", zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end", maxWidth: 430, left: "50%", transform: "translateX(-50%)" }} onClick={() => setShowAdd(false)}>
-          <div style={{ background: C.surface, borderRadius: "20px 20px 0 0", padding: "24px 20px 48px" }} onClick={e => e.stopPropagation()}>
-            <h3 style={{ fontSize: 20, fontWeight: 700, marginBottom: 18 }}>Nuevo gasto planeado</h3>
-            <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
-              <input value={newItem.emoji} onChange={e => setNewItem(p => ({ ...p, emoji: e.target.value }))} className="inp" style={{ width: 56, textAlign: "center", fontSize: 22 }} />
-              <input placeholder="Nombre" value={newItem.nombre} onChange={e => setNewItem(p => ({ ...p, nombre: e.target.value }))} className="inp" style={{ flex: 1 }} />
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", backdropFilter: "blur(10px)", zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end", maxWidth: 430, left: "50%", transform: "translateX(-50%)" }} onClick={() => setShowAdd(false)}>
+          <div style={{ background: "#111", borderRadius: "24px 24px 0 0", padding: "28px 20px 48px", border: `1px solid ${C.border}` }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <h3 style={{ fontSize: 20, fontWeight: 700 }}>Nuevo compromiso</h3>
+              <button onClick={() => setShowAdd(false)} style={{ background: "#1a1a1a", border: `1px solid ${C.border}`, borderRadius: "50%", width: 32, height: 32, color: C.textDim, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
-              <input type="number" placeholder="Monto" value={newItem.monto} onChange={e => setNewItem(p => ({ ...p, monto: e.target.value }))} className="inp mono" />
-              <select value={newItem.frecuencia} onChange={e => setNewItem(p => ({ ...p, frecuencia: e.target.value }))} className="inp">
-                <option>Quincena</option><option>Mensual</option><option>Semanal</option><option>Único</option>
-              </select>
+            <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+              <input value={newItem.emoji} onChange={e => setNewItem(p => ({ ...p, emoji: e.target.value }))} className="inp" style={{ width: 58, textAlign: "center", fontSize: 24 }} placeholder="💸" />
+              <input placeholder="Nombre (ej: Renta)" value={newItem.nombre} onChange={e => setNewItem(p => ({ ...p, nombre: e.target.value }))} className="inp" style={{ flex: 1 }} />
             </div>
-            <button onClick={add} style={{ background: C.gold, color: "#000", border: "none", borderRadius: 14, padding: "16px", fontFamily: "'Sora',sans-serif", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%" }}>Agregar</button>
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 11, color: C.textDim, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: ".06em" }}>Monto</label>
+              <input type="number" inputMode="decimal" placeholder="0" value={newItem.monto} onChange={e => setNewItem(p => ({ ...p, monto: e.target.value }))} className="inp" style={{ fontFamily: "'Space Mono',monospace", fontSize: 22, textAlign: "center" }} />
+              {newItem.monto && <p style={{ fontSize: 12, color: C.gold, marginTop: 6, textAlign: "center", fontFamily: "'Space Mono',monospace" }}>= {toTime(parseFloat(newItem.monto) || 0, rate, cfg.horas_dia)} de tu tiempo</p>}
+            </div>
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ fontSize: 11, color: C.textDim, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: ".06em" }}>Frecuencia</label>
+              <div style={{ display: "flex", gap: 8 }}>
+                {["Quincena","Mensual","Semanal","Único"].map(f => (
+                  <button key={f} onClick={() => setNewItem(p => ({ ...p, frecuencia: f }))} style={{ flex: 1, padding: "10px 4px", border: `1px solid ${newItem.frecuencia === f ? C.gold : C.border}`, borderRadius: 10, background: newItem.frecuencia === f ? C.goldDim : "#141414", color: newItem.frecuencia === f ? C.goldLight : C.textDim, fontSize: 11, cursor: "pointer", fontFamily: "'Sora',sans-serif", fontWeight: 600 }}>{f}</button>
+                ))}
+              </div>
+            </div>
+            <button onClick={add} style={{ background: (!newItem.nombre || !newItem.monto) ? "#1a1a1a" : C.gold, color: (!newItem.nombre || !newItem.monto) ? C.textDim : "#000", border: "none", borderRadius: 14, padding: "16px", fontFamily: "'Sora',sans-serif", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%" }}>Agregar compromiso</button>
+          </div>
+        </div>
+      )}
+
+      {editItem && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", backdropFilter: "blur(10px)", zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end", maxWidth: 430, left: "50%", transform: "translateX(-50%)" }} onClick={() => setEditItem(null)}>
+          <div style={{ background: "#111", borderRadius: "24px 24px 0 0", padding: "28px 20px 48px", border: `1px solid ${C.border}` }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <h3 style={{ fontSize: 20, fontWeight: 700 }}>Editar compromiso</h3>
+              <button onClick={() => setEditItem(null)} style={{ background: "#1a1a1a", border: `1px solid ${C.border}`, borderRadius: "50%", width: 32, height: 32, color: C.textDim, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+            </div>
+            <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+              <input value={editItem.emoji} onChange={e => setEditItem(p => ({ ...p, emoji: e.target.value }))} className="inp" style={{ width: 58, textAlign: "center", fontSize: 24 }} />
+              <input value={editItem.nombre} onChange={e => setEditItem(p => ({ ...p, nombre: e.target.value }))} className="inp" style={{ flex: 1 }} />
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 11, color: C.textDim, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: ".06em" }}>Monto</label>
+              <input type="number" inputMode="decimal" value={editItem.monto} onChange={e => setEditItem(p => ({ ...p, monto: e.target.value }))} className="inp" style={{ fontFamily: "'Space Mono',monospace", fontSize: 22, textAlign: "center" }} />
+            </div>
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ fontSize: 11, color: C.textDim, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: ".06em" }}>Frecuencia</label>
+              <div style={{ display: "flex", gap: 8 }}>
+                {["Quincena","Mensual","Semanal","Único"].map(f => (
+                  <button key={f} onClick={() => setEditItem(p => ({ ...p, frecuencia: f }))} style={{ flex: 1, padding: "10px 4px", border: `1px solid ${editItem.frecuencia === f ? C.gold : C.border}`, borderRadius: 10, background: editItem.frecuencia === f ? C.goldDim : "#141414", color: editItem.frecuencia === f ? C.goldLight : C.textDim, fontSize: 11, cursor: "pointer", fontFamily: "'Sora',sans-serif", fontWeight: 600 }}>{f}</button>
+                ))}
+              </div>
+            </div>
+            <button onClick={saveEdit} style={{ background: C.gold, color: "#000", border: "none", borderRadius: 14, padding: "16px", fontFamily: "'Sora',sans-serif", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%" }}>Guardar cambios</button>
           </div>
         </div>
       )}
