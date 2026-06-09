@@ -96,6 +96,9 @@ const INIT_PRESUPUESTO = {
   ],
 };
 
+const INIT_DEUDAS = [];
+const INIT_TDCS = [];
+
 const INIT_CFG = {
   ingreso_quincena: 0, horas_dia: 8, dias_semana: 5,
   horas_extra: 0, ingreso_extra: 0,
@@ -843,6 +846,348 @@ function saveToStorage(key, value) {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
 }
 
+
+// ── DEUDAS TAB ────────────────────────────────────────────────────────────────
+function DeudasTab({ deudas, setDeudas, tdcs, setTdcs, rate, cfg }) {
+  const [showAdd, setShowAdd] = useState(false);
+  const [editDeuda, setEditDeuda] = useState(null);
+  const [newD, setNewD] = useState({ nombre: "", emoji: "⛓️", saldo_inicial: "", saldo_actual: "", tasa_mensual: "", pago_mensual: "" });
+  const [showAddTdc, setShowAddTdc] = useState(false);
+  const [editTdc, setEditTdc] = useState(null);
+  const [newT, setNewT] = useState({ nombre: "", emoji: "💳", limite: "", saldo: "", tasa_mensual: "", fecha_corte: "", fecha_pago: "" });
+
+  function add() {
+    if (!newD.nombre || !newD.saldo_actual) return;
+    const d = {
+      id: Date.now().toString(),
+      nombre: newD.nombre, emoji: newD.emoji,
+      saldo_inicial: parseFloat(newD.saldo_inicial) || parseFloat(newD.saldo_actual),
+      saldo_actual: parseFloat(newD.saldo_actual),
+      tasa_mensual: parseFloat(newD.tasa_mensual) || 0,
+      pago_mensual: parseFloat(newD.pago_mensual) || 0,
+      fecha_inicio: new Date().toISOString().split("T")[0],
+    };
+    setDeudas(p => [...p, d]);
+    setNewD({ nombre: "", emoji: "⛓️", saldo_inicial: "", saldo_actual: "", tasa_mensual: "", pago_mensual: "" });
+    setShowAdd(false);
+  }
+
+  function del(id) { setDeudas(p => p.filter(d => d.id !== id)); }
+
+  function addTdc() {
+    if (!newT.nombre || !newT.limite) return;
+    const t = { id: Date.now().toString(), nombre: newT.nombre, emoji: newT.emoji, limite: parseFloat(newT.limite) || 0, saldo: parseFloat(newT.saldo) || 0, tasa_mensual: parseFloat(newT.tasa_mensual) || 0, fecha_corte: newT.fecha_corte, fecha_pago: newT.fecha_pago };
+    setTdcs(p => [...p, t]);
+    setNewT({ nombre: '', emoji: '💳', limite: '', saldo: '', tasa_mensual: '', fecha_corte: '', fecha_pago: '' });
+    setShowAddTdc(false);
+  }
+  function delTdc(id) { setTdcs(p => p.filter(t => t.id !== id)); }
+  function saveTdc() {
+    setTdcs(p => p.map(t => t.id === editTdc.id ? { ...t, nombre: editTdc.nombre, emoji: editTdc.emoji, limite: parseFloat(editTdc.limite) || t.limite, saldo: parseFloat(editTdc.saldo) || 0, tasa_mensual: parseFloat(editTdc.tasa_mensual) || 0, fecha_corte: editTdc.fecha_corte, fecha_pago: editTdc.fecha_pago } : t));
+    setEditTdc(null);
+  }
+
+  function saveEdit() {
+    setDeudas(p => p.map(d => d.id === editDeuda.id ? {
+      ...d,
+      nombre: editDeuda.nombre, emoji: editDeuda.emoji,
+      saldo_actual: parseFloat(editDeuda.saldo_actual) || d.saldo_actual,
+      tasa_mensual: parseFloat(editDeuda.tasa_mensual) || 0,
+      pago_mensual: parseFloat(editDeuda.pago_mensual) || 0,
+    } : d));
+    setEditDeuda(null);
+  }
+
+  function interesQuincena(d) { return d.saldo_actual * (d.tasa_mensual / 100 / 2); }
+  function mesesRestantes(d) {
+    if (!d.pago_mensual || d.pago_mensual <= 0) return null;
+    const intMes = d.saldo_actual * (d.tasa_mensual / 100);
+    if (d.pago_mensual <= intMes) return null;
+    return Math.ceil(Math.log(d.pago_mensual / (d.pago_mensual - intMes)) / Math.log(1 + d.tasa_mensual / 100));
+  }
+
+  const totalDeuda = deudas.reduce((a, d) => a + d.saldo_actual, 0);
+  const totalInteresMes = deudas.reduce((a, d) => a + d.saldo_actual * (d.tasa_mensual / 100), 0);
+
+  const inp = { background: "#141414", border: `1px solid #1e1e1e`, borderRadius: 12, padding: "13px 14px", color: "#F0EDE6", fontFamily: "'Sora',sans-serif", fontSize: 15, width: "100%", outline: "none" };
+
+  return (
+    <div style={{ padding: "0 0 96px" }}>
+      <div style={{ padding: "52px 20px 16px" }}>
+        <h1 style={{ fontSize: 30, fontWeight: 700, marginBottom: 4 }}>Deudas</h1>
+        <p style={{ fontSize: 13, color: "#5A5550" }}>Lo que le debes al pasado.</p>
+      </div>
+
+      <div style={{ padding: "0 20px" }}>
+        {/* Resumen */}
+        {deudas.length > 0 && (
+          <div style={{ background: "#101010", border: `1px solid #E53E3E44`, borderRadius: 18, padding: 18, marginBottom: 16 }}>
+            <p style={{ fontSize: 10, color: "#E53E3E", letterSpacing: ".12em", textTransform: "uppercase", fontWeight: 600, marginBottom: 8 }}>Total deuda</p>
+            <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 36, color: "#E53E3E", fontWeight: 700 }}>${totalDeuda.toLocaleString("es-MX", { minimumFractionDigits: 0 })}</div>
+            <div style={{ display: "flex", gap: 16, marginTop: 12 }}>
+              <div>
+                <div style={{ fontSize: 11, color: "#5A5550" }}>Interés mensual</div>
+                <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 15, color: "#E53E3E", marginTop: 2 }}>${Math.round(totalInteresMes).toLocaleString("es-MX")}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: "#5A5550" }}>Costo por día</div>
+                <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 15, color: "#E53E3E", marginTop: 2 }}>${Math.round(totalInteresMes / 30).toLocaleString("es-MX")}</div>
+              </div>
+            </div>
+            <div style={{ marginTop: 12, padding: "10px 14px", background: "#0d0d0d", borderRadius: 10, border: "1px solid #1a1a1a" }}>
+              <p style={{ fontSize: 12, color: "#5A5550", lineHeight: 1.6 }}>
+                Cada día que pasa te cuesta <span style={{ color: "#E53E3E", fontFamily: "'Space Mono',monospace" }}>${Math.round(totalInteresMes / 30).toLocaleString("es-MX")}</span> en intereses sin hacer nada.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Lista deudas */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <p style={{ fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: "#5A5550", fontWeight: 600 }}>Mis deudas</p>
+          <button onClick={() => setShowAdd(true)} style={{ background: "#C9A84C", border: "none", borderRadius: 8, padding: "5px 12px", color: "#000", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'Sora',sans-serif" }}>+ Agregar</button>
+        </div>
+
+        {deudas.length === 0 && (
+          <div style={{ background: "#101010", border: "1px solid #1e1e1e", borderRadius: 16, padding: "32px 20px", textAlign: "center" }}>
+            <div style={{ fontSize: 32, marginBottom: 12 }}>🎯</div>
+            <p style={{ fontSize: 14, color: "#5A5550" }}>Sin deudas registradas.</p>
+            <p style={{ fontSize: 12, color: "#3A3733", marginTop: 4 }}>Agrega tus deudas para ver cómo te afectan.</p>
+          </div>
+        )}
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 16 }}>
+          {deudas.map(d => {
+            const meses = mesesRestantes(d);
+            const intMes = d.saldo_actual * (d.tasa_mensual / 100);
+            const pctPagado = d.saldo_inicial > 0 ? Math.min(((d.saldo_inicial - d.saldo_actual) / d.saldo_inicial) * 100, 100) : 0;
+            return (
+              <div key={d.id} style={{ background: "#101010", border: "1px solid #1e1e1e", borderRadius: 16, padding: 18 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ fontSize: 22 }}>{d.emoji}</span>
+                    <div>
+                      <div style={{ fontSize: 15, fontWeight: 600 }}>{d.nombre}</div>
+                      <div style={{ fontSize: 11, color: "#5A5550", marginTop: 2 }}>
+                        {d.tasa_mensual}% mensual · {meses ? `${meses} meses restantes` : "pago insuficiente"}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button onClick={() => setEditDeuda({ ...d, saldo_actual: String(d.saldo_actual), tasa_mensual: String(d.tasa_mensual), pago_mensual: String(d.pago_mensual) })} style={{ background: "none", border: `1px solid #1e1e1e`, borderRadius: 8, padding: "4px 8px", color: "#5A5550", fontSize: 11, cursor: "pointer" }}>✏️</button>
+                    <button onClick={() => del(d.id)} style={{ background: "none", border: `1px solid #E53E3E44`, borderRadius: 8, padding: "4px 8px", color: "#E53E3E", fontSize: 13, cursor: "pointer" }}>×</button>
+                  </div>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
+                  {[
+                    { l: "Saldo actual", v: `$${d.saldo_actual.toLocaleString("es-MX")}`, c: "#E53E3E" },
+                    { l: "Interés/mes", v: `$${Math.round(intMes).toLocaleString("es-MX")}`, c: "#E8895A" },
+                    { l: "Pago mensual", v: `$${d.pago_mensual.toLocaleString("es-MX")}`, c: "#F0EDE6" },
+                    { l: "Abona a capital", v: `$${Math.max(0, Math.round(d.pago_mensual - intMes)).toLocaleString("es-MX")}`, c: "#3DB87A" },
+                  ].map(r => (
+                    <div key={r.l} style={{ background: "#141414", borderRadius: 10, padding: "10px 12px" }}>
+                      <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 14, color: r.c, fontWeight: 700 }}>{r.v}</div>
+                      <div style={{ fontSize: 10, color: "#5A5550", marginTop: 3 }}>{r.l}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {d.saldo_inicial > 0 && (
+                  <>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+                      <span style={{ fontSize: 11, color: "#5A5550" }}>Progreso de pago</span>
+                      <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 11, color: "#3DB87A" }}>{pctPagado.toFixed(1)}%</span>
+                    </div>
+                    <div style={{ height: 6, background: "#1e1e1e", borderRadius: 100, overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${pctPagado}%`, background: "linear-gradient(90deg, #3DB87A88, #3DB87A)", borderRadius: 100, transition: "width .6s" }} />
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Add modal */}
+      {showAdd && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", backdropFilter: "blur(10px)", zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end", maxWidth: 430, left: "50%", transform: "translateX(-50%)" }} onClick={() => setShowAdd(false)}>
+          <div style={{ background: "#111", borderRadius: "24px 24px 0 0", padding: "28px 20px 48px", border: "1px solid #1e1e1e", maxHeight: "85vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <h3 style={{ fontSize: 20, fontWeight: 700 }}>Nueva deuda</h3>
+              <button onClick={() => setShowAdd(false)} style={{ background: "#1a1a1a", border: "1px solid #1e1e1e", borderRadius: "50%", width: 32, height: 32, color: "#5A5550", fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+            </div>
+            <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+              <input value={newD.emoji} onChange={e => setNewD(p => ({ ...p, emoji: e.target.value }))} style={{ ...inp, width: 58, textAlign: "center", fontSize: 24 }} placeholder="⛓️" />
+              <input placeholder="Nombre (ej: Moto)" value={newD.nombre} onChange={e => setNewD(p => ({ ...p, nombre: e.target.value }))} style={{ ...inp, flex: 1 }} />
+            </div>
+            {[
+              { l: "Deuda original (cuando la adquiriste)", k: "saldo_inicial", ph: "66000" },
+              { l: "Saldo actual (lo que debes hoy)", k: "saldo_actual", ph: "55000" },
+              { l: "Tasa de interés mensual (%)", k: "tasa_mensual", ph: "3.5" },
+              { l: "Pago mensual", k: "pago_mensual", ph: "2100" },
+            ].map(f => (
+              <div key={f.k} style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: 11, color: "#5A5550", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: ".06em" }}>{f.l}</label>
+                <input type="number" inputMode="decimal" placeholder={f.ph} value={newD[f.k]} onChange={e => setNewD(p => ({ ...p, [f.k]: e.target.value }))} style={{ ...inp, fontFamily: "'Space Mono',monospace", fontSize: 18 }} />
+              </div>
+            ))}
+            <button onClick={add} style={{ background: (!newD.nombre || !newD.saldo_actual) ? "#1a1a1a" : "#C9A84C", color: (!newD.nombre || !newD.saldo_actual) ? "#5A5550" : "#000", border: "none", borderRadius: 14, padding: "16px", fontFamily: "'Sora',sans-serif", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%", marginTop: 6 }}>Agregar deuda</button>
+          </div>
+        </div>
+      )}
+
+      {/* Edit modal */}
+      {editDeuda && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", backdropFilter: "blur(10px)", zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end", maxWidth: 430, left: "50%", transform: "translateX(-50%)" }} onClick={() => setEditDeuda(null)}>
+          <div style={{ background: "#111", borderRadius: "24px 24px 0 0", padding: "28px 20px 48px", border: "1px solid #1e1e1e", maxHeight: "85vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <h3 style={{ fontSize: 20, fontWeight: 700 }}>Editar deuda</h3>
+              <button onClick={() => setEditDeuda(null)} style={{ background: "#1a1a1a", border: "1px solid #1e1e1e", borderRadius: "50%", width: 32, height: 32, color: "#5A5550", fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+            </div>
+            <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+              <input value={editDeuda.emoji} onChange={e => setEditDeuda(p => ({ ...p, emoji: e.target.value }))} style={{ ...inp, width: 58, textAlign: "center", fontSize: 24 }} />
+              <input value={editDeuda.nombre} onChange={e => setEditDeuda(p => ({ ...p, nombre: e.target.value }))} style={{ ...inp, flex: 1 }} />
+            </div>
+            {[
+              { l: "Saldo actual", k: "saldo_actual" },
+              { l: "Tasa mensual (%)", k: "tasa_mensual" },
+              { l: "Pago mensual", k: "pago_mensual" },
+            ].map(f => (
+              <div key={f.k} style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: 11, color: "#5A5550", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: ".06em" }}>{f.l}</label>
+                <input type="number" inputMode="decimal" value={editDeuda[f.k]} onChange={e => setEditDeuda(p => ({ ...p, [f.k]: e.target.value }))} style={{ ...inp, fontFamily: "'Space Mono',monospace", fontSize: 18 }} />
+              </div>
+            ))}
+            <button onClick={saveEdit} style={{ background: "#C9A84C", color: "#000", border: "none", borderRadius: 14, padding: "16px", fontFamily: "'Sora',sans-serif", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%" }}>Guardar cambios</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── TDC SECTION ── */}
+      <div style={{ padding: "0 20px 16px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, marginTop: 24 }}>
+          <p style={{ fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: "#5A5550", fontWeight: 600 }}>Tarjetas de crédito</p>
+          <button onClick={() => setShowAddTdc(true)} style={{ background: "#C9A84C", border: "none", borderRadius: 8, padding: "5px 12px", color: "#000", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'Sora',sans-serif" }}>+ Agregar</button>
+        </div>
+
+        {tdcs.length === 0 && (
+          <div style={{ background: "#101010", border: "1px solid #1e1e1e", borderRadius: 16, padding: "24px 20px", textAlign: "center" }}>
+            <p style={{ fontSize: 13, color: "#5A5550" }}>Sin tarjetas registradas.</p>
+          </div>
+        )}
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {tdcs.map(t => {
+            const pctUso = t.limite > 0 ? Math.min((t.saldo / t.limite) * 100, 100) : 0;
+            const disponible = t.limite - t.saldo;
+            const colorUso = pctUso > 80 ? "#E53E3E" : pctUso > 50 ? "#C9A84C" : "#3DB87A";
+            const diasCorte = t.fecha_corte ? (() => { const hoy = new Date(); const corte = new Date(new Date().getFullYear(), new Date().getMonth(), parseInt(t.fecha_corte)); if (corte < hoy) corte.setMonth(corte.getMonth() + 1); return Math.ceil((corte - hoy) / (1000*60*60*24)); })() : null;
+            return (
+              <div key={t.id} style={{ background: "#101010", border: "1px solid #1e1e1e", borderRadius: 16, padding: 18 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ fontSize: 22 }}>{t.emoji}</span>
+                    <div>
+                      <div style={{ fontSize: 15, fontWeight: 600 }}>{t.nombre}</div>
+                      <div style={{ fontSize: 11, color: "#5A5550", marginTop: 2 }}>
+                        {t.tasa_mensual}% mensual · límite {fmt(t.limite)}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button onClick={() => setEditTdc({ ...t, limite: String(t.limite), saldo: String(t.saldo), tasa_mensual: String(t.tasa_mensual) })} style={{ background: "none", border: "1px solid #1e1e1e", borderRadius: 8, padding: "4px 8px", color: "#5A5550", fontSize: 11, cursor: "pointer" }}>✏️</button>
+                    <button onClick={() => delTdc(t.id)} style={{ background: "none", border: "1px solid #E53E3E44", borderRadius: 8, padding: "4px 8px", color: "#E53E3E", fontSize: 13, cursor: "pointer" }}>×</button>
+                  </div>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
+                  {[
+                    { l: "Saldo usado", v: fmt(t.saldo), c: "#E53E3E" },
+                    { l: "Disponible", v: fmt(disponible), c: "#3DB87A" },
+                    { l: "Corte día", v: t.fecha_corte ? `Día ${t.fecha_corte}${diasCorte !== null ? ` (${diasCorte}d)` : ""}` : "—", c: "#C9A84C" },
+                    { l: "Límite de pago", v: t.fecha_pago ? `Día ${t.fecha_pago}` : "—", c: "#F0EDE6" },
+                  ].map(r => (
+                    <div key={r.l} style={{ background: "#141414", borderRadius: 10, padding: "10px 12px" }}>
+                      <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 13, color: r.c, fontWeight: 700 }}>{r.v}</div>
+                      <div style={{ fontSize: 10, color: "#5A5550", marginTop: 3 }}>{r.l}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+                  <span style={{ fontSize: 11, color: "#5A5550" }}>Uso del crédito</span>
+                  <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 11, color: colorUso }}>{pctUso.toFixed(0)}%</span>
+                </div>
+                <div style={{ height: 6, background: "#1e1e1e", borderRadius: 100, overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${pctUso}%`, background: colorUso, borderRadius: 100, transition: "width .6s" }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Add TDC modal */}
+      {showAddTdc && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", backdropFilter: "blur(10px)", zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end", maxWidth: 430, left: "50%", transform: "translateX(-50%)" }} onClick={() => setShowAddTdc(false)}>
+          <div style={{ background: "#111", borderRadius: "24px 24px 0 0", padding: "28px 20px 48px", border: "1px solid #1e1e1e", maxHeight: "85vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <h3 style={{ fontSize: 20, fontWeight: 700 }}>Nueva tarjeta</h3>
+              <button onClick={() => setShowAddTdc(false)} style={{ background: "#1a1a1a", border: "1px solid #1e1e1e", borderRadius: "50%", width: 32, height: 32, color: "#5A5550", fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+            </div>
+            <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+              <input value={newT.emoji} onChange={e => setNewT(p => ({ ...p, emoji: e.target.value }))} style={{ background: "#141414", border: "1px solid #1e1e1e", borderRadius: 12, padding: "13px 14px", color: "#F0EDE6", fontFamily: "'Sora',sans-serif", fontSize: 24, width: 58, outline: "none", textAlign: "center" }} placeholder="💳" />
+              <input placeholder="Nombre (ej: TDC NU)" value={newT.nombre} onChange={e => setNewT(p => ({ ...p, nombre: e.target.value }))} style={{ background: "#141414", border: "1px solid #1e1e1e", borderRadius: 12, padding: "13px 14px", color: "#F0EDE6", fontFamily: "'Sora',sans-serif", fontSize: 15, flex: 1, outline: "none" }} />
+            </div>
+            {[
+              { l: "Límite de crédito", k: "limite", ph: "15000" },
+              { l: "Saldo actual (lo que debes)", k: "saldo", ph: "3500" },
+              { l: "Tasa de interés mensual (%)", k: "tasa_mensual", ph: "8.5" },
+              { l: "Día de corte", k: "fecha_corte", ph: "15" },
+              { l: "Día límite de pago", k: "fecha_pago", ph: "10" },
+            ].map(f => (
+              <div key={f.k} style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: 11, color: "#5A5550", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: ".06em" }}>{f.l}</label>
+                <input type="number" inputMode="decimal" placeholder={f.ph} value={newT[f.k]} onChange={e => setNewT(p => ({ ...p, [f.k]: e.target.value }))} style={{ background: "#141414", border: "1px solid #1e1e1e", borderRadius: 12, padding: "13px 14px", color: "#F0EDE6", fontFamily: "'Space Mono',monospace", fontSize: 18, width: "100%", outline: "none" }} />
+              </div>
+            ))}
+            <button onClick={addTdc} style={{ background: (!newT.nombre || !newT.limite) ? "#1a1a1a" : "#C9A84C", color: (!newT.nombre || !newT.limite) ? "#5A5550" : "#000", border: "none", borderRadius: 14, padding: "16px", fontFamily: "'Sora',sans-serif", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%", marginTop: 6 }}>Agregar tarjeta</button>
+          </div>
+        </div>
+      )}
+
+      {/* Edit TDC modal */}
+      {editTdc && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", backdropFilter: "blur(10px)", zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end", maxWidth: 430, left: "50%", transform: "translateX(-50%)" }} onClick={() => setEditTdc(null)}>
+          <div style={{ background: "#111", borderRadius: "24px 24px 0 0", padding: "28px 20px 48px", border: "1px solid #1e1e1e", maxHeight: "85vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <h3 style={{ fontSize: 20, fontWeight: 700 }}>Editar tarjeta</h3>
+              <button onClick={() => setEditTdc(null)} style={{ background: "#1a1a1a", border: "1px solid #1e1e1e", borderRadius: "50%", width: 32, height: 32, color: "#5A5550", fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+            </div>
+            <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+              <input value={editTdc.emoji} onChange={e => setEditTdc(p => ({ ...p, emoji: e.target.value }))} style={{ background: "#141414", border: "1px solid #1e1e1e", borderRadius: 12, padding: "13px", color: "#F0EDE6", fontSize: 24, width: 58, outline: "none", textAlign: "center" }} />
+              <input value={editTdc.nombre} onChange={e => setEditTdc(p => ({ ...p, nombre: e.target.value }))} style={{ background: "#141414", border: "1px solid #1e1e1e", borderRadius: 12, padding: "13px 14px", color: "#F0EDE6", fontFamily: "'Sora',sans-serif", fontSize: 15, flex: 1, outline: "none" }} />
+            </div>
+            {[
+              { l: "Límite de crédito", k: "limite" },
+              { l: "Saldo actual", k: "saldo" },
+              { l: "Tasa mensual (%)", k: "tasa_mensual" },
+              { l: "Día de corte", k: "fecha_corte" },
+              { l: "Día límite de pago", k: "fecha_pago" },
+            ].map(f => (
+              <div key={f.k} style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: 11, color: "#5A5550", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: ".06em" }}>{f.l}</label>
+                <input type="number" inputMode="decimal" value={editTdc[f.k] || ""} onChange={e => setEditTdc(p => ({ ...p, [f.k]: e.target.value }))} style={{ background: "#141414", border: "1px solid #1e1e1e", borderRadius: 12, padding: "13px 14px", color: "#F0EDE6", fontFamily: "'Space Mono',monospace", fontSize: 18, width: "100%", outline: "none" }} />
+              </div>
+            ))}
+            <button onClick={saveTdc} style={{ background: "#C9A84C", color: "#000", border: "none", borderRadius: 14, padding: "16px", fontFamily: "'Sora',sans-serif", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%" }}>Guardar cambios</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── MAIN ─────────────────────────────────────────────────────────────────────
 export default function App() {
   const [tab, setTab] = useState("home");
@@ -851,6 +1196,8 @@ export default function App() {
   const [accounts, setAccounts] = useState(() => loadFromStorage("fp_accounts", INIT_ACCOUNTS));
   const [cats, setCats] = useState(() => loadFromStorage("fp_cats", INIT_CATS));
   const [presupuesto, setPresupuesto] = useState(() => loadFromStorage("fp_presupuesto", INIT_PRESUPUESTO));
+  const [deudas, setDeudas] = useState(() => loadFromStorage("fp_deudas", INIT_DEUDAS));
+  const [tdcs, setTdcs] = useState(() => loadFromStorage("fp_tdcs", INIT_TDCS));
   const [showTx, setShowTx] = useState(false);
 
   // Auto-save whenever data changes
@@ -859,9 +1206,12 @@ export default function App() {
   useEffect(() => { saveToStorage("fp_accounts", accounts); }, [accounts]);
   useEffect(() => { saveToStorage("fp_cats", cats); }, [cats]);
   useEffect(() => { saveToStorage("fp_presupuesto", presupuesto); }, [presupuesto]);
+  useEffect(() => { saveToStorage("fp_deudas", deudas); }, [deudas]);
+  useEffect(() => { saveToStorage("fp_tdcs", tdcs); }, [tdcs]);
 
   const horasReales = (cfg.horas_dia + (cfg.horas_extra || 0));
   const rate = (cfg.ingreso_quincena + (cfg.ingreso_extra || 0)) / (horasReales * cfg.dias_semana * 2);
+  const totalDeudaReal = deudas.reduce((a, d) => a + d.saldo_actual, 0);
   const health = useMemo(() => healthScore(txs, cfg), [txs, cfg]);
   const totalG = txs.filter(t => t.tipo === "gasto").reduce((a, t) => a + t.monto, 0);
   const totalI = txs.filter(t => t.tipo === "ingreso").reduce((a, t) => a + t.monto, 0);
@@ -951,6 +1301,45 @@ export default function App() {
               ))}
             </div>
 
+            {/* Deudas summary */}
+            {deudas.length > 0 && (() => {
+              const totalDeuda = deudas.reduce((a, d) => a + d.saldo_actual, 0);
+              const totalInteresMes = deudas.reduce((a, d) => a + d.saldo_actual * (d.tasa_mensual / 100), 0);
+              return (
+                <div style={{ padding: "0 20px 16px" }}>
+                  <div style={{ border: "1px solid #E53E3E44", borderRadius: 18, padding: 18, background: "#E53E3E07" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                      <div>
+                        <p style={{ fontSize: 10, color: C.red, letterSpacing: ".12em", textTransform: "uppercase", fontWeight: 600, marginBottom: 6 }}>Deuda total</p>
+                        <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 28, color: C.red, fontWeight: 700 }}>{fmt(totalDeuda)}</div>
+                        <div style={{ fontSize: 12, color: C.textDim, marginTop: 4 }}>{toTime(totalDeuda, rate, cfg.horas_dia)} de tu vida</div>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontSize: 11, color: C.textDim }}>Interés/mes</div>
+                        <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 18, color: C.red, marginTop: 3 }}>{fmt(Math.round(totalInteresMes))}</div>
+                        <div style={{ fontSize: 11, color: C.textDim, marginTop: 6 }}>Por día</div>
+                        <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 14, color: "#E8895A", marginTop: 3 }}>{fmt(Math.round(totalInteresMes / 30))}</div>
+                      </div>
+                    </div>
+                    {deudas.map(d => {
+                      const pct = d.saldo_inicial > 0 ? Math.min(((d.saldo_inicial - d.saldo_actual) / d.saldo_inicial) * 100, 100) : 0;
+                      return (
+                        <div key={d.id} style={{ marginBottom: 10 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                            <span style={{ fontSize: 12 }}>{d.emoji} {d.nombre}</span>
+                            <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 12, color: C.red }}>{fmt(d.saldo_actual)}</span>
+                          </div>
+                          <div className="ptk" style={{ height: 5 }}>
+                            <div className="ptf" style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${C.green}88, ${C.green})` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Recientes */}
             <div style={{ padding: "0 20px" }}>
               <p className="sec">recientes</p>
@@ -978,6 +1367,7 @@ export default function App() {
 
         {/* PLAN */}
         {tab === "plan" && <PlanTab presupuesto={presupuesto} setPresupuesto={setPresupuesto} cfg={cfg} rate={rate} />}
+        {tab === "deudas" && <DeudasTab deudas={deudas} setDeudas={setDeudas} tdcs={tdcs} setTdcs={setTdcs} rate={rate} cfg={cfg} />}
 
         {/* HISTORIAL */}
         {tab === "historial" && (
@@ -1101,7 +1491,7 @@ export default function App() {
 
         {/* TABBAR */}
         <nav className="tabbar">
-          {[["home","⬡","Inicio"],["plan","▤","Plan"],["historial","≡","Historial"],["analisis","◎","Análisis"],["config","⚙","Config"]].map(([id,icon,label]) => (
+          {[["home","⬡","Inicio"],["deudas","⛓","Deudas"],["plan","▤","Plan"],["historial","≡","Historial"],["config","⚙","Config"]].map(([id,icon,label]) => (
             <button key={id} className={`ti ${tab === id ? "on" : ""}`} onClick={() => setTab(id)}>
               <span className="ticon">{icon}</span>
               <span className="tlbl">{label}</span>
