@@ -1188,6 +1188,142 @@ function DeudasTab({ deudas, setDeudas, tdcs, setTdcs, rate, cfg }) {
   );
 }
 
+
+// ── BABYLON CHAT ──────────────────────────────────────────────────────────────
+function BabylonChat({ txs, deudas, tdcs, presupuesto, cfg, rate }) {
+  const [messages, setMessages] = useState([
+    { role: "assistant", text: "Soy Babylon. Dame tus números y te digo la verdad. ¿Qué quieres saber?" }
+  ]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const bottomRef = useRef(null);
+
+  const totalDeuda = deudas.reduce((a, d) => a + d.saldo_actual, 0);
+  const totalTdc = tdcs.reduce((a, t) => a + t.saldo, 0);
+  const totalG = txs.filter(t => t.tipo === "gasto").reduce((a, t) => a + t.monto, 0);
+  const totalI = txs.filter(t => t.tipo === "ingreso").reduce((a, t) => a + t.monto, 0);
+
+  const context = `Datos financieros del usuario:
+- Ingreso quincena: $${cfg.ingreso_quincena}
+- Total gastado: $${totalG}
+- Balance: $${totalI - totalG}
+- Deuda total: $${totalDeuda}
+- Saldo TDC: $${totalTdc}
+- Meta ahorro: ${cfg.meta_ahorro_pct}%
+- Deudas: ${deudas.map(d => `${d.nombre} $${d.saldo_actual} al ${d.tasa_mensual}% mensual`).join(", ")}
+- TDCs: ${tdcs.map(t => `${t.nombre} saldo $${t.saldo} límite $${t.limite}`).join(", ")}`;
+
+  const SYSTEM = `Eres Babylon, coach financiero brutal y honesto. Hablas español mexicano, directo, sin rodeos. Cabrón pero no cruel. Tu trabajo: SELLAR fugas. Cada gasto lo traduces a horas de trabajo. Máximo 4-6 líneas por respuesta. Sin saludos ni despedidas. Usa Markdown simple. Tienes acceso a los datos reales del usuario.`;
+
+  async function send() {
+    if (!input.trim() || loading) return;
+    const userMsg = input.trim();
+    setInput("");
+    setMessages(p => [...p, { role: "user", text: userMsg }]);
+    setLoading(true);
+
+    try {
+      const history = messages.slice(-6).map(m => ({
+        role: m.role === "assistant" ? "assistant" : "user",
+        content: m.role === "assistant" ? m.text : m.text
+      }));
+
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 400,
+          system: SYSTEM + "\n\n" + context,
+          messages: [...history, { role: "user", content: userMsg }]
+        })
+      });
+      const data = await res.json();
+      const reply = data.content?.[0]?.text || "Error al conectar.";
+      setMessages(p => [...p, { role: "assistant", text: reply }]);
+    } catch {
+      setMessages(p => [...p, { role: "assistant", text: "Sin conexión. Intenta de nuevo." }]);
+    }
+    setLoading(false);
+    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+  }
+
+  function handleKey(e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: C.bg }}>
+      {/* Header */}
+      <div style={{ padding: "52px 20px 16px", flexShrink: 0, borderBottom: `1px solid ${C.border}` }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ width: 44, height: 44, borderRadius: "50%", background: C.goldDim, border: `2px solid ${C.gold}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>🏛️</div>
+          <div>
+            <h1 style={{ fontSize: 20, fontWeight: 700 }}>Babylon</h1>
+            <p style={{ fontSize: 12, color: C.green, fontWeight: 600 }}>● online</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Messages */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "16px 16px 0" }}>
+        {messages.map((m, i) => (
+          <div key={i} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start", marginBottom: 12 }}>
+            {m.role === "assistant" && (
+              <div style={{ width: 28, height: 28, borderRadius: "50%", background: C.goldDim, border: `1px solid ${C.gold}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0, marginRight: 8, alignSelf: "flex-end" }}>🏛️</div>
+            )}
+            <div style={{
+              maxWidth: "78%",
+              background: m.role === "user" ? C.gold : C.surface,
+              color: m.role === "user" ? "#000" : C.text,
+              borderRadius: m.role === "user" ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
+              padding: "12px 14px",
+              fontSize: 14,
+              lineHeight: 1.55,
+              border: m.role === "assistant" ? `1px solid ${C.border}` : "none",
+              fontFamily: "'Sora', sans-serif",
+              whiteSpace: "pre-wrap",
+            }}>
+              {m.text}
+            </div>
+          </div>
+        ))}
+        {loading && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+            <div style={{ width: 28, height: 28, borderRadius: "50%", background: C.goldDim, border: `1px solid ${C.gold}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>🏛️</div>
+            <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: "18px 18px 18px 4px", padding: "12px 16px" }}>
+              <div style={{ display: "flex", gap: 4 }}>
+                {[0,1,2].map(i => <div key={i} style={{ width: 6, height: 6, borderRadius: "50%", background: C.gold, opacity: 0.6, animation: `pulse ${0.8 + i*0.2}s ease infinite` }} />)}
+              </div>
+            </div>
+          </div>
+        )}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Quick questions */}
+      <div style={{ padding: "10px 16px 0", flexShrink: 0 }}>
+        <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 8 }}>
+          {["¿Cómo voy?", "¿Cuándo liquido mis deudas?", "¿En qué gasto más?", "Dame un plan"].map(q => (
+            <button key={q} onClick={() => { setInput(q); }} style={{ background: C.surfaceHigh, border: `1px solid ${C.border}`, borderRadius: 100, padding: "7px 14px", color: C.textDim, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap", fontFamily: "'Sora',sans-serif", flexShrink: 0 }}>{q}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* Input */}
+      <div style={{ padding: "10px 16px 100px", flexShrink: 0, display: "flex", gap: 10, alignItems: "flex-end" }}>
+        <input
+          type="text"
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={handleKey}
+          placeholder="Pregúntale a Babylon..."
+          style={{ flex: 1, background: C.surfaceHigh, border: `1px solid ${C.border}`, borderRadius: 14, padding: "14px 16px", color: C.text, fontFamily: "'Sora',sans-serif", fontSize: 15, outline: "none", WebkitAppearance: "none" }}
+        />
+        <button onClick={send} disabled={loading || !input.trim()} style={{ width: 44, height: 44, borderRadius: "50%", background: input.trim() ? C.gold : C.surfaceHigh, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0, transition: "background .2s" }}>→</button>
+      </div>
+    </div>
+  );
+}
+
 // ── MAIN ─────────────────────────────────────────────────────────────────────
 export default function App() {
   const [tab, setTab] = useState("home");
@@ -1368,6 +1504,7 @@ export default function App() {
         {/* PLAN */}
         {tab === "plan" && <PlanTab presupuesto={presupuesto} setPresupuesto={setPresupuesto} cfg={cfg} rate={rate} />}
         {tab === "deudas" && <DeudasTab deudas={deudas} setDeudas={setDeudas} tdcs={tdcs} setTdcs={setTdcs} rate={rate} cfg={cfg} />}
+        {tab === "babylon" && <BabylonChat txs={txs} deudas={deudas} tdcs={tdcs} presupuesto={presupuesto} cfg={cfg} rate={rate} />}
 
         {/* HISTORIAL */}
         {tab === "historial" && (
@@ -1491,7 +1628,7 @@ export default function App() {
 
         {/* TABBAR */}
         <nav className="tabbar">
-          {[["home","⬡","Inicio"],["deudas","⛓","Deudas"],["plan","▤","Plan"],["historial","≡","Historial"],["config","⚙","Config"]].map(([id,icon,label]) => (
+          {[["home","⬡","Inicio"],["deudas","⛓","Deudas"],["plan","▤","Plan"],["babylon","🏛","Babylon"],["config","⚙","Config"]].map(([id,icon,label]) => (
             <button key={id} className={`ti ${tab === id ? "on" : ""}`} onClick={() => setTab(id)}>
               <span className="ticon">{icon}</span>
               <span className="tlbl">{label}</span>
