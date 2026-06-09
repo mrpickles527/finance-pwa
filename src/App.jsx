@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from "recharts";
 
 const FONTS = `
@@ -832,15 +832,33 @@ function PlanTab({ presupuesto, setPresupuesto, cfg, rate }) {
   );
 }
 
+// ── LOCALSTORAGE ─────────────────────────────────────────────────────────────
+function loadFromStorage(key, fallback) {
+  try {
+    const saved = localStorage.getItem(key);
+    return saved ? JSON.parse(saved) : fallback;
+  } catch { return fallback; }
+}
+function saveToStorage(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+}
+
 // ── MAIN ─────────────────────────────────────────────────────────────────────
 export default function App() {
   const [tab, setTab] = useState("home");
-  const [txs, setTxs] = useState(INIT_TXS);
-  const [cfg, setCfg] = useState(INIT_CFG);
-  const [accounts, setAccounts] = useState(INIT_ACCOUNTS);
-  const [cats, setCats] = useState(INIT_CATS);
-  const [presupuesto, setPresupuesto] = useState(INIT_PRESUPUESTO);
+  const [txs, setTxs] = useState(() => loadFromStorage("fp_txs", INIT_TXS));
+  const [cfg, setCfg] = useState(() => loadFromStorage("fp_cfg", INIT_CFG));
+  const [accounts, setAccounts] = useState(() => loadFromStorage("fp_accounts", INIT_ACCOUNTS));
+  const [cats, setCats] = useState(() => loadFromStorage("fp_cats", INIT_CATS));
+  const [presupuesto, setPresupuesto] = useState(() => loadFromStorage("fp_presupuesto", INIT_PRESUPUESTO));
   const [showTx, setShowTx] = useState(false);
+
+  // Auto-save whenever data changes
+  useEffect(() => { saveToStorage("fp_txs", txs); }, [txs]);
+  useEffect(() => { saveToStorage("fp_cfg", cfg); }, [cfg]);
+  useEffect(() => { saveToStorage("fp_accounts", accounts); }, [accounts]);
+  useEffect(() => { saveToStorage("fp_cats", cats); }, [cats]);
+  useEffect(() => { saveToStorage("fp_presupuesto", presupuesto); }, [presupuesto]);
 
   const horasReales = (cfg.horas_dia + (cfg.horas_extra || 0));
   const rate = (cfg.ingreso_quincena + (cfg.ingreso_extra || 0)) / (horasReales * cfg.dias_semana * 2);
