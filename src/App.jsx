@@ -15,9 +15,9 @@ const C = {
 
 // ── ACCOUNTS ─────────────────────────────────────────────────────────────────
 const INIT_ACCOUNTS = [
-  { id: "nu_nom", nombre: "NU Nómina", emoji: "🏦", tipo: "Débito", color: C.purple },
-  { id: "tdc", nombre: "TDC", emoji: "💳", tipo: "Crédito", color: C.gold },
-  { id: "efectivo", nombre: "Efectivo", emoji: "💵", tipo: "Cash", color: "#27AE60" },
+  { id: "nu_nom", nombre: "NU Nómina", emoji: "🏦", tipo: "Débito", color: C.purple, saldo: 0 },
+  { id: "tdc", nombre: "TDC", emoji: "💳", tipo: "Crédito", color: C.gold, saldo: 0 },
+  { id: "efectivo", nombre: "Efectivo", emoji: "💵", tipo: "Cash", color: "#27AE60", saldo: 0 },
 ];
 
 // ── CATEGORIES ─────────────────────────────────────────────────────────────
@@ -25,9 +25,12 @@ const INIT_CATS = [
   { id: "deudas", nombre: "Deudas", emoji: "💳", color: "#E53E3E", subs: [
     { id: "deuda_pasiva", nombre: "Deuda pasiva", emoji: "🔴" },
     { id: "deuda_buena", nombre: "Deuda buena", emoji: "🟢" },
+    { id: "pago_tdc", nombre: "Pago TDC", emoji: "💳" },
     { id: "prestamo", nombre: "Préstamo", emoji: "🏦" },
   ]},
   { id: "vivienda", nombre: "Vivienda", emoji: "🏠", color: "#C05621", subs: [
+    { id: "renta", nombre: "Renta", emoji: "🔑" },
+    { id: "servicios", nombre: "Servicios (luz/gas/internet)", emoji: "💡" },
     { id: "gastos_hogar", nombre: "Gastos del hogar", emoji: "🧹" },
   ]},
   { id: "movilidad", nombre: "Movilidad", emoji: "🏍️", color: "#DD6B20", subs: [
@@ -36,24 +39,30 @@ const INIT_CATS = [
     { id: "uber", nombre: "Uber", emoji: "🚗" },
   ]},
   { id: "comida", nombre: "Comida", emoji: "🍽️", color: "#38A169", subs: [
+    { id: "comida_real", nombre: "Comida real", emoji: "🥩" },
     { id: "gusto", nombre: "Gusto", emoji: "🍕" },
     { id: "basura", nombre: "Basura", emoji: "🍬" },
   ]},
   { id: "salud", nombre: "Salud", emoji: "🏥", color: "#319795", subs: [
+    { id: "psicologo", nombre: "Psicólogo", emoji: "🧠" },
+    { id: "gym", nombre: "GYM", emoji: "🏋️" },
     { id: "salud_general", nombre: "Salud general", emoji: "🩺" },
     { id: "farmacia", nombre: "Farmacia", emoji: "💊" },
     { id: "fisio", nombre: "Fisio", emoji: "🦴" },
   ]},
   { id: "educacion", nombre: "Educación", emoji: "📚", color: "#805AD5", subs: [
+    { id: "colegiatura", nombre: "Colegiatura", emoji: "🎓" },
     { id: "papeleria", nombre: "Papelería", emoji: "✏️" },
     { id: "trabajuguetes", nombre: "Trabajuguetes", emoji: "🛠️" },
     { id: "herramientas", nombre: "Herramientas", emoji: "⚙️" },
   ]},
   { id: "estilo", nombre: "Ropa & Estilo", emoji: "👕", color: "#D53F8C", subs: [
     { id: "ropa", nombre: "Ropa", emoji: "👗" },
+    { id: "cuidado_personal", nombre: "Cuidado personal (barber, etc)", emoji: "💇" },
   ]},
   { id: "tiempo_libre", nombre: "Tiempo Libre", emoji: "🎯", color: "#D69E2E", subs: [
     { id: "caprichos", nombre: "Caprichos", emoji: "✨" },
+    { id: "alcohol", nombre: "Alcohol", emoji: "🍺" },
     { id: "apuestas", nombre: "Apuestas", emoji: "🎲" },
     { id: "ocio", nombre: "Ocio / Salidas", emoji: "🎉" },
   ]},
@@ -77,22 +86,22 @@ const INIT_TXS = [];
 
 const INIT_PRESUPUESTO = {
   q1: [
-    { id: "renta", nombre: "Renta", emoji: "🏠", monto: 2000, frecuencia: "Mensual", pagado: false },
-    { id: "moto", nombre: "Moto", emoji: "🏍️", monto: 4200, frecuencia: "Mensual", pagado: false },
-    { id: "comida_real", nombre: "Comida real", emoji: "🥩", monto: 1600, frecuencia: "Mensual", pagado: false },
-    { id: "uni", nombre: "Uni", emoji: "🎓", monto: 1600, frecuencia: "Mensual", pagado: false },
-    { id: "gym", nombre: "GYM", emoji: "🏆", monto: 450, frecuencia: "Mensual", pagado: false },
-    { id: "att", nombre: "AT&T", emoji: "📞", monto: 200, frecuencia: "Mensual", pagado: false },
-    { id: "casa", nombre: "Casa", emoji: "🏡", monto: 1000, frecuencia: "Mensual", pagado: false },
-    { id: "barber", nombre: "Barber", emoji: "✂️", monto: 100, frecuencia: "Mensual", pagado: false },
-    { id: "psicologo", nombre: "Psicólogo", emoji: "🧠", monto: 600, frecuencia: "Quincenal", pagado: false },
-    { id: "gas", nombre: "Gas", emoji: "⛽", monto: 285, frecuencia: "Semanal", pagado: false },
+    { id: "renta", nombre: "Renta", emoji: "🏠", monto: 2000, frecuencia: "Mensual", pagado: false, catId: "vivienda", subId: "renta", cuentaId: "nu_nom" },
+    { id: "moto", nombre: "Moto", emoji: "🏍️", monto: 4200, frecuencia: "Mensual", pagado: false, catId: "deudas", subId: "deuda_pasiva", cuentaId: "nu_nom" },
+    { id: "comida_real", nombre: "Comida real", emoji: "🥩", monto: 1600, frecuencia: "Mensual", pagado: false, catId: "comida", subId: "comida_real", cuentaId: "nu_nom" },
+    { id: "uni", nombre: "Uni", emoji: "🎓", monto: 1600, frecuencia: "Mensual", pagado: false, catId: "educacion", subId: "colegiatura", cuentaId: "nu_nom" },
+    { id: "gym", nombre: "GYM", emoji: "🏆", monto: 450, frecuencia: "Mensual", pagado: false, catId: "salud", subId: "gym", cuentaId: "nu_nom" },
+    { id: "att", nombre: "AT&T", emoji: "📞", monto: 200, frecuencia: "Mensual", pagado: false, catId: "vivienda", subId: "servicios", cuentaId: "nu_nom" },
+    { id: "casa", nombre: "Casa", emoji: "🏡", monto: 1000, frecuencia: "Mensual", pagado: false, catId: "vivienda", subId: "gastos_hogar", cuentaId: "nu_nom" },
+    { id: "barber", nombre: "Barber", emoji: "✂️", monto: 100, frecuencia: "Mensual", pagado: false, catId: "estilo", subId: "cuidado_personal", cuentaId: "nu_nom" },
+    { id: "psicologo", nombre: "Psicólogo", emoji: "🧠", monto: 600, frecuencia: "Quincenal", pagado: false, catId: "salud", subId: "psicologo", cuentaId: "nu_nom" },
+    { id: "gas", nombre: "Gas", emoji: "⛽", monto: 285, frecuencia: "Semanal", pagado: false, catId: "vivienda", subId: "servicios", cuentaId: "nu_nom" },
   ],
   q2: [
-    { id: "moto_q2", nombre: "Moto", emoji: "🏍️", monto: 4200, frecuencia: "Mensual", pagado: false },
-    { id: "comida_real_q2", nombre: "Comida real", emoji: "🥩", monto: 1600, frecuencia: "Mensual", pagado: false },
-    { id: "psicologo_q2", nombre: "Psicólogo", emoji: "🧠", monto: 600, frecuencia: "Quincenal", pagado: false },
-    { id: "gas_q2", nombre: "Gas", emoji: "⛽", monto: 285, frecuencia: "Semanal", pagado: false },
+    { id: "moto_q2", nombre: "Moto", emoji: "🏍️", monto: 4200, frecuencia: "Mensual", pagado: false, catId: "deudas", subId: "deuda_pasiva", cuentaId: "nu_nom" },
+    { id: "comida_real_q2", nombre: "Comida real", emoji: "🥩", monto: 1600, frecuencia: "Mensual", pagado: false, catId: "comida", subId: "comida_real", cuentaId: "nu_nom" },
+    { id: "psicologo_q2", nombre: "Psicólogo", emoji: "🧠", monto: 600, frecuencia: "Quincenal", pagado: false, catId: "salud", subId: "psicologo", cuentaId: "nu_nom" },
+    { id: "gas_q2", nombre: "Gas", emoji: "⛽", monto: 285, frecuencia: "Semanal", pagado: false, catId: "vivienda", subId: "servicios", cuentaId: "nu_nom" },
   ],
 };
 
@@ -129,13 +138,19 @@ function monthLabel(ym) {
 function compoundGrowth(capital, rate, years) {
   return capital * Math.pow(1 + rate / 100, years);
 }
-function healthScore(txs, cfg) {
+function healthScore(txs, cfg, deudas = [], tdcs = []) {
   const gastos = txs.filter(t => t.tipo === "gasto").reduce((a, t) => a + t.monto, 0);
-  const deudas = txs.filter(t => t.tipo === "gasto" && t.catId === "deudas").reduce((a, t) => a + t.monto, 0);
   const ahorros = txs.filter(t => t.tipo === "gasto" && t.catId === "ahorro").reduce((a, t) => a + t.monto, 0);
   const ing = cfg.ingreso_quincena;
+  const ingMensual = ing * 2;
   const savRate = ing > 0 ? (ahorros / ing) * 100 : 0;
-  const dRate = ing > 0 ? (deudas / ing) * 100 : 0;
+
+  // Carga de deuda real: pagos mensuales de deudas + interés mínimo de TDCs
+  const pagoMensualDeudas = deudas.reduce((a, d) => a + (d.pago_mensual || 0), 0);
+  const interesTdcs = tdcs.reduce((a, t) => a + (t.saldo || 0) * ((t.tasa_mensual || 0) / 100), 0);
+  const cargaMensual = pagoMensualDeudas + interesTdcs;
+  const dRate = ingMensual > 0 ? (cargaMensual / ingMensual) * 100 : 0;
+
   let s = 50;
   s += (ing - gastos) > 0 ? 15 : -20;
   s += savRate >= cfg.meta_ahorro_pct ? 20 : (savRate / cfg.meta_ahorro_pct) * 10;
@@ -235,7 +250,7 @@ function TxForm({ cats, accounts, cfg, rate, onSave, onClose }) {
 
     await sendToMake(tx);
 
-    onSave({ ...tx, catId: catId || "otros", subId: subId || "", cuentaId });
+    onSave({ ...tx, catId: catId || "otros", subId: subId || "", cuentaId, cuentaDestId: tipo === "transferencia" ? cuentaDestId : undefined });
     setSaving(false);
     onClose();
   }
@@ -633,7 +648,7 @@ function AnalisisTab({ txs, cats, cfg, rate }) {
 }
 
 // ── PRESUPUESTO TAB ───────────────────────────────────────────────────────────
-function PlanTab({ presupuesto, setPresupuesto, cfg, rate }) {
+function PlanTab({ presupuesto, setPresupuesto, txs, registrarMovimiento, cfg, rate }) {
   const [quincena, setQuincena] = useState(1);
   const [showAdd, setShowAdd] = useState(false);
   const [editItem, setEditItem] = useState(null);
@@ -655,7 +670,46 @@ function PlanTab({ presupuesto, setPresupuesto, cfg, rate }) {
     { name: "Libre", value: Math.max(disponible, 0), color: "#1e1e1e" },
   ].filter(d => d.value > 0);
 
-  function toggle(id) { setPresupuesto(p => ({ ...p, [qKey]: p[qKey].map(i => i.id === id ? { ...i, pagado: !i.pagado } : i) })); }
+  // Movimientos variables de esta quincena (sin contar compromisos ya reflejados)
+  const now = new Date();
+  const year = now.getFullYear(), month = now.getMonth();
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  const rangeStart = quincena === 1 ? 1 : 16;
+  const rangeEnd = quincena === 1 ? 15 : lastDay;
+  const gastosVariables = txs.filter(t => {
+    if (t.tipo !== "gasto" || t.origen === "presupuesto") return false;
+    const d = new Date(t.fecha + "T12:00:00");
+    return d.getFullYear() === year && d.getMonth() === month && d.getDate() >= rangeStart && d.getDate() <= rangeEnd;
+  });
+  const totalVariable = gastosVariables.reduce((a, t) => a + t.monto, 0);
+  const libreReal = disponible - totalVariable;
+
+  function toggle(id) {
+    const item = items.find(i => i.id === id);
+    const nowPagado = !item.pagado;
+    setPresupuesto(p => ({ ...p, [qKey]: p[qKey].map(i => i.id === id ? { ...i, pagado: nowPagado } : i) }));
+
+    // Si se marca como pagado, registrar el movimiento en el historial
+    if (nowPagado && item.catId) {
+      const fecha = new Date().toISOString().split("T")[0];
+      registrarMovimiento({
+        id: `tx_pres_${id}_${Date.now()}`,
+        fecha,
+        tipo: "gasto",
+        monto: item.monto,
+        categoria: item.nombre,
+        subcategoria: "",
+        cuenta: item.cuentaId || "nu_nom",
+        nota: `Compromiso: ${item.nombre}`,
+        quincena,
+        mes: fecha.slice(0, 7),
+        catId: item.catId,
+        subId: item.subId || "",
+        cuentaId: item.cuentaId || "nu_nom",
+        origen: "presupuesto",
+      });
+    }
+  }
   function del(id) { setPresupuesto(p => ({ ...p, [qKey]: p[qKey].filter(i => i.id !== id) })); }
   function add() {
     if (!newItem.nombre || !newItem.monto) return;
@@ -734,6 +788,33 @@ function PlanTab({ presupuesto, setPresupuesto, cfg, rate }) {
               Lo libre equivale a <span style={{ color: disponible >= 0 ? C.gold : C.red, fontFamily: "'Space Mono',monospace" }}>{toTime(Math.abs(disponible), rate, cfg.horas_dia)}</span> de tu tiempo.{disponible < 0 ? " Ya gastaste trabajo que no has hecho." : ""}
             </p>
           </div>
+        </div>
+
+        {/* Libre real - movimientos de la quincena */}
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+            <div>
+              <p style={{ fontSize: 10, color: C.textDim, letterSpacing: ".1em", textTransform: "uppercase", fontWeight: 600, marginBottom: 6 }}>Libre real ahora</p>
+              <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 28, color: libreReal >= 0 ? C.gold : C.red, fontWeight: 700 }}>{fmt(libreReal)}</div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 11, color: C.textDim }}>Gastado libre</div>
+              <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 16, color: C.red, marginTop: 3 }}>{fmt(totalVariable)}</div>
+            </div>
+          </div>
+          {gastosVariables.length === 0 ? (
+            <p style={{ fontSize: 12, color: C.textDim }}>Sin gastos libres registrados en esta quincena.</p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {gastosVariables.slice(0, 5).map(t => (
+                <div key={t.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                  <span style={{ color: C.textDim }}>{t.nota || t.categoria} · {fmtDate(t.fecha)}</span>
+                  <span style={{ fontFamily: "'Space Mono',monospace", color: C.text }}>{fmt(t.monto)}</span>
+                </div>
+              ))}
+              {gastosVariables.length > 5 && <p style={{ fontSize: 11, color: C.textDim }}>+{gastosVariables.length - 5} más</p>}
+            </div>
+          )}
         </div>
 
         {/* Por pagar */}
@@ -848,13 +929,19 @@ function saveToStorage(key, value) {
 
 
 // ── DEUDAS TAB ────────────────────────────────────────────────────────────────
-function DeudasTab({ deudas, setDeudas, tdcs, setTdcs, rate, cfg }) {
+function DeudasTab({ deudas, setDeudas, tdcs, setTdcs, accounts, setAccounts, rate, cfg }) {
   const [showAdd, setShowAdd] = useState(false);
   const [editDeuda, setEditDeuda] = useState(null);
   const [newD, setNewD] = useState({ nombre: "", emoji: "⛓️", saldo_inicial: "", saldo_actual: "", tasa_mensual: "", pago_mensual: "" });
   const [showAddTdc, setShowAddTdc] = useState(false);
   const [editTdc, setEditTdc] = useState(null);
   const [newT, setNewT] = useState({ nombre: "", emoji: "💳", limite: "", saldo: "", tasa_mensual: "", fecha_corte: "", fecha_pago: "" });
+  const [editAccount, setEditAccount] = useState(null);
+
+  function saveAccountBalance() {
+    setAccounts(prev => prev.map(a => a.id === editAccount.id ? { ...a, saldo: parseFloat(editAccount.saldo) || 0 } : a));
+    setEditAccount(null);
+  }
 
   function add() {
     if (!newD.nombre || !newD.saldo_actual) return;
@@ -919,6 +1006,24 @@ function DeudasTab({ deudas, setDeudas, tdcs, setTdcs, rate, cfg }) {
       </div>
 
       <div style={{ padding: "0 20px" }}>
+        {/* Cuentas */}
+        <p style={{ fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: "#5A5550", fontWeight: 600, marginBottom: 10 }}>Mis cuentas</p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+          {accounts.filter(a => a.id !== "tdc" || tdcs.length === 0).map(a => (
+            <div key={a.id} style={{ background: "#101010", border: "1px solid #1e1e1e", borderRadius: 14, padding: "14px 16px", display: "flex", alignItems: "center", gap: 12 }}>
+              <span style={{ fontSize: 22 }}>{a.emoji}</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>{a.nombre}</div>
+                <div style={{ fontSize: 11, color: "#5A5550" }}>{a.tipo}</div>
+              </div>
+              <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 16, fontWeight: 700, color: (a.saldo || 0) >= 0 ? "#F0EDE6" : "#E53E3E" }}>
+                ${(a.saldo || 0).toLocaleString("es-MX")}
+              </div>
+              <button onClick={() => setEditAccount({ ...a, saldo: String(a.saldo || 0) })} style={{ background: "none", border: "1px solid #1e1e1e", borderRadius: 8, padding: "4px 8px", color: "#5A5550", fontSize: 11, cursor: "pointer" }}>✏️</button>
+            </div>
+          ))}
+        </div>
+
         {/* Resumen */}
         {deudas.length > 0 && (
           <div style={{ background: "#101010", border: `1px solid #E53E3E44`, borderRadius: 18, padding: 18, marginBottom: 16 }}>
@@ -1184,6 +1289,24 @@ function DeudasTab({ deudas, setDeudas, tdcs, setTdcs, rate, cfg }) {
           </div>
         </div>
       )}
+
+      {/* Edit Account modal */}
+      {editAccount && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", backdropFilter: "blur(10px)", zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end", maxWidth: 430, left: "50%", transform: "translateX(-50%)" }} onClick={() => setEditAccount(null)}>
+          <div style={{ background: "#111", borderRadius: "24px 24px 0 0", padding: "28px 20px 48px", border: "1px solid #1e1e1e" }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <h3 style={{ fontSize: 20, fontWeight: 700 }}>{editAccount.emoji} {editAccount.nombre}</h3>
+              <button onClick={() => setEditAccount(null)} style={{ background: "#1a1a1a", border: "1px solid #1e1e1e", borderRadius: "50%", width: 32, height: 32, color: "#5A5550", fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+            </div>
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ fontSize: 11, color: "#5A5550", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: ".06em" }}>Saldo actual</label>
+              <input type="number" inputMode="decimal" value={editAccount.saldo} onChange={e => setEditAccount(p => ({ ...p, saldo: e.target.value }))} style={{ background: "#141414", border: "1px solid #1e1e1e", borderRadius: 12, padding: "13px 14px", color: "#F0EDE6", fontFamily: "'Space Mono',monospace", fontSize: 22, width: "100%", outline: "none", textAlign: "center" }} />
+              <p style={{ fontSize: 12, color: "#5A5550", marginTop: 8, textAlign: "center" }}>Ajusta manualmente si no coincide con tu banco.</p>
+            </div>
+            <button onClick={saveAccountBalance} style={{ background: "#C9A84C", color: "#000", border: "none", borderRadius: 14, padding: "16px", fontFamily: "'Sora',sans-serif", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%" }}>Guardar saldo</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1345,10 +1468,37 @@ export default function App() {
   useEffect(() => { saveToStorage("fp_deudas", deudas); }, [deudas]);
   useEffect(() => { saveToStorage("fp_tdcs", tdcs); }, [tdcs]);
 
+  // Registra un movimiento y actualiza cuentas/tdcs en cascada
+  function registrarMovimiento(tx) {
+    setTxs(p => [tx, ...p]);
+
+    // Actualizar saldo de cuentas
+    setAccounts(prev => prev.map(a => {
+      let saldo = a.saldo || 0;
+      if (tx.tipo === "gasto" && a.id === tx.cuentaId) saldo -= tx.monto;
+      if (tx.tipo === "ingreso" && a.id === tx.cuentaId) saldo += tx.monto;
+      if (tx.tipo === "transferencia") {
+        if (a.id === tx.cuentaId) saldo -= tx.monto;
+        if (a.id === tx.cuentaDestId) saldo += tx.monto;
+      }
+      return { ...a, saldo };
+    }));
+
+    // Conectar movimientos con TDC
+    if (tx.tipo === "gasto" && tx.cuentaId === "tdc" && tdcs.length > 0) {
+      // Cargo a la tarjeta: sube el saldo de deuda de la TDC
+      setTdcs(prev => prev.map((t, i) => i === 0 ? { ...t, saldo: (t.saldo || 0) + tx.monto } : t));
+    }
+    if (tx.tipo === "gasto" && tx.catId === "deudas" && tx.subId === "pago_tdc" && tdcs.length > 0) {
+      // Pago a la tarjeta: baja el saldo de deuda de la TDC
+      setTdcs(prev => prev.map((t, i) => i === 0 ? { ...t, saldo: Math.max(0, (t.saldo || 0) - tx.monto) } : t));
+    }
+  }
+
   const horasReales = (cfg.horas_dia + (cfg.horas_extra || 0));
   const rate = (cfg.ingreso_quincena + (cfg.ingreso_extra || 0)) / (horasReales * cfg.dias_semana * 2);
   const totalDeudaReal = deudas.reduce((a, d) => a + d.saldo_actual, 0);
-  const health = useMemo(() => healthScore(txs, cfg), [txs, cfg]);
+  const health = useMemo(() => healthScore(txs, cfg, deudas, tdcs), [txs, cfg, deudas, tdcs]);
   const totalG = txs.filter(t => t.tipo === "gasto").reduce((a, t) => a + t.monto, 0);
   const totalI = txs.filter(t => t.tipo === "ingreso").reduce((a, t) => a + t.monto, 0);
   const balance = totalI - totalG;
@@ -1502,8 +1652,8 @@ export default function App() {
         )}
 
         {/* PLAN */}
-        {tab === "plan" && <PlanTab presupuesto={presupuesto} setPresupuesto={setPresupuesto} cfg={cfg} rate={rate} />}
-        {tab === "deudas" && <DeudasTab deudas={deudas} setDeudas={setDeudas} tdcs={tdcs} setTdcs={setTdcs} rate={rate} cfg={cfg} />}
+        {tab === "plan" && <PlanTab presupuesto={presupuesto} setPresupuesto={setPresupuesto} txs={txs} registrarMovimiento={registrarMovimiento} cfg={cfg} rate={rate} />}
+        {tab === "deudas" && <DeudasTab deudas={deudas} setDeudas={setDeudas} tdcs={tdcs} setTdcs={setTdcs} accounts={accounts} setAccounts={setAccounts} rate={rate} cfg={cfg} />}
         {tab === "babylon" && <BabylonChat txs={txs} deudas={deudas} tdcs={tdcs} presupuesto={presupuesto} cfg={cfg} rate={rate} />}
 
         {/* HISTORIAL */}
@@ -1622,9 +1772,13 @@ export default function App() {
         )}
 
         {/* FAB */}
-        <button className="fab" onClick={() => setShowTx(true)}>+</button>
+        <button
+          className="fab"
+          onClick={() => setShowTx(true)}
+          style={tab === "babylon" ? { bottom: "auto", top: 56, right: "calc(50% - 215px + 18px)" } : {}}
+        >+</button>
 
-        {showTx && <TxForm cats={cats} accounts={accounts} cfg={cfg} rate={rate} onSave={tx => setTxs(p => [tx, ...p])} onClose={() => setShowTx(false)} />}
+        {showTx && <TxForm cats={cats} accounts={accounts} cfg={cfg} rate={rate} onSave={registrarMovimiento} onClose={() => setShowTx(false)} />}
 
         {/* TABBAR */}
         <nav className="tabbar">
