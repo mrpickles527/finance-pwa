@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from "react";
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, AreaChart, Area, ReferenceLine, ReferenceDot } from "recharts";
 
 const FONTS = `
   @import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
@@ -86,10 +86,10 @@ const INIT_TXS = [];
 
 const INIT_PRESUPUESTO = {
   q1: [
-    { id: "renta", nombre: "Renta", emoji: "🏠", monto: 2000, frecuencia: "Mensual", pagado: false, catId: "vivienda", subId: "renta", cuentaId: "nu_nom" },
-    { id: "moto", nombre: "Moto", emoji: "🏍️", monto: 4200, frecuencia: "Mensual", pagado: false, catId: "deudas", subId: "deuda_pasiva", cuentaId: "nu_nom" },
+    { id: "renta", nombre: "Renta", emoji: "🏠", monto: 2000, frecuencia: "Mensual", pagado: false, catId: "vivienda", subId: "renta", cuentaId: "nu_nom", diaPago: 1 },
+    { id: "moto", nombre: "Moto", emoji: "🏍️", monto: 4200, frecuencia: "Mensual", pagado: false, catId: "deudas", subId: "deuda_pasiva", cuentaId: "nu_nom", diaPago: 5 },
     { id: "comida_real", nombre: "Comida real", emoji: "🥩", monto: 1600, frecuencia: "Mensual", pagado: false, catId: "comida", subId: "comida_real", cuentaId: "nu_nom" },
-    { id: "uni", nombre: "Uni", emoji: "🎓", monto: 1600, frecuencia: "Mensual", pagado: false, catId: "educacion", subId: "colegiatura", cuentaId: "nu_nom" },
+    { id: "uni", nombre: "Uni", emoji: "🎓", monto: 1600, frecuencia: "Mensual", pagado: false, catId: "educacion", subId: "colegiatura", cuentaId: "nu_nom", diaPago: 10 },
     { id: "gym", nombre: "GYM", emoji: "🏆", monto: 450, frecuencia: "Mensual", pagado: false, catId: "salud", subId: "gym", cuentaId: "nu_nom" },
     { id: "att", nombre: "AT&T", emoji: "📞", monto: 200, frecuencia: "Mensual", pagado: false, catId: "vivienda", subId: "servicios", cuentaId: "nu_nom" },
     { id: "casa", nombre: "Casa", emoji: "🏡", monto: 1000, frecuencia: "Mensual", pagado: false, catId: "vivienda", subId: "gastos_hogar", cuentaId: "nu_nom" },
@@ -115,6 +115,42 @@ const INIT_CFG = {
 };
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
+function proyectarPatrimonio(patrimonioInicial, deudas, tdcs, ahorroMensual, meses = 36) {
+  // Simula mes a mes: deudas bajan segun pago - interes, ahorro sube patrimonio
+  const puntos = [];
+  let deudasSim = deudas.map(d => ({ ...d }));
+  let tdcsSim = tdcs.map(t => ({ ...t }));
+  let activos = patrimonioInicial + deudas.reduce((a,d)=>a+d.saldo_actual,0) + tdcs.reduce((a,t)=>a+(t.saldo||0),0);
+
+  let mesLibreDeuda = null;
+  let mesCrucePositivo = null;
+
+  for (let m = 0; m <= meses; m++) {
+    const totalDeuda = deudasSim.reduce((a,d)=>a+d.saldo_actual,0) + tdcsSim.reduce((a,t)=>a+(t.saldo||0),0);
+    const patrimonio = activos - totalDeuda;
+    puntos.push({ mes: m, patrimonio: Math.round(patrimonio), deuda: Math.round(totalDeuda) });
+
+    if (totalDeuda <= 0 && mesLibreDeuda === null && (deudas.length > 0 || tdcs.length > 0)) mesLibreDeuda = m;
+    if (patrimonio >= 0 && mesCrucePositivo === null) mesCrucePositivo = m;
+
+    // Avanzar un mes
+    deudasSim = deudasSim.map(d => {
+      const interes = d.saldo_actual * (d.tasa_mensual / 100);
+      const abono = (d.pago_mensual || 0) - interes;
+      return { ...d, saldo_actual: Math.max(0, d.saldo_actual - abono) };
+    });
+    activos += ahorroMensual;
+  }
+  return { puntos, mesLibreDeuda, mesCrucePositivo };
+}
+
+function mesAFecha(mesesAdelante) {
+  const d = new Date();
+  d.setMonth(d.getMonth() + mesesAdelante);
+  const meses = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+  return `${meses[d.getMonth()]} ${d.getFullYear()}`;
+}
+
 function getPeriodoActual() {
   const now = new Date();
   const dia = now.getDate();
@@ -659,7 +695,7 @@ function PlanTab({ presupuesto, setPresupuesto, txs, registrarMovimiento, deudas
   const [quincena, setQuincena] = useState(() => getPeriodoActual().quincena);
   const [showAdd, setShowAdd] = useState(false);
   const [editItem, setEditItem] = useState(null);
-  const [newItem, setNewItem] = useState({ nombre: "", emoji: "💸", monto: "", frecuencia: "Quincena", esDeuda: false, deudaId: "" });
+  const [newItem, setNewItem] = useState({ nombre: "", emoji: "💸", monto: "", frecuencia: "Quincena", esDeuda: false, deudaId: "", diaPago: "" });
 
   const qKey = `q${quincena}`;
   const items = presupuesto[qKey] || [];
@@ -721,19 +757,19 @@ function PlanTab({ presupuesto, setPresupuesto, txs, registrarMovimiento, deudas
   function del(id) { setPresupuesto(p => ({ ...p, [qKey]: p[qKey].filter(i => i.id !== id) })); }
   function add() {
     if (!newItem.nombre || !newItem.monto) return;
-    const base = { id: Date.now().toString(), nombre: newItem.nombre, emoji: newItem.emoji, monto: parseFloat(newItem.monto), frecuencia: newItem.frecuencia, pagado: false, cuentaId: "nu_nom" };
+    const base = { id: Date.now().toString(), nombre: newItem.nombre, emoji: newItem.emoji, monto: parseFloat(newItem.monto), frecuencia: newItem.frecuencia, pagado: false, cuentaId: "nu_nom", diaPago: newItem.diaPago ? parseInt(newItem.diaPago) : null };
     if (newItem.esDeuda && newItem.deudaId) {
       base.catId = "deudas";
       base.subId = "deuda_pasiva";
       base.deudaId = newItem.deudaId;
     }
     setPresupuesto(p => ({ ...p, [qKey]: [...p[qKey], base] }));
-    setNewItem({ nombre: "", emoji: "💸", monto: "", frecuencia: "Quincena", esDeuda: false, deudaId: "" });
+    setNewItem({ nombre: "", emoji: "💸", monto: "", frecuencia: "Quincena", esDeuda: false, deudaId: "", diaPago: "" });
     setShowAdd(false);
   }
   function saveEdit() {
     if (!editItem) return;
-    setPresupuesto(p => ({ ...p, [qKey]: p[qKey].map(i => i.id === editItem.id ? { ...i, nombre: editItem.nombre, emoji: editItem.emoji, monto: parseFloat(editItem.monto) || i.monto, frecuencia: editItem.frecuencia } : i) }));
+    setPresupuesto(p => ({ ...p, [qKey]: p[qKey].map(i => i.id === editItem.id ? { ...i, nombre: editItem.nombre, emoji: editItem.emoji, monto: parseFloat(editItem.monto) || i.monto, frecuencia: editItem.frecuencia, diaPago: editItem.diaPago ? parseInt(editItem.diaPago) : null } : i) }));
     setEditItem(null);
   }
 
@@ -844,7 +880,19 @@ function PlanTab({ presupuesto, setPresupuesto, txs, registrarMovimiento, deudas
               <span style={{ fontSize: 20 }}>{item.emoji}</span>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 14, fontWeight: 500 }}>{item.nombre}</div>
-                <div style={{ fontSize: 11, color: C.textDim }}>{item.frecuencia} · <span style={{ color: C.gold, fontFamily: "'Space Mono',monospace" }}>{toTime(item.monto, rate, cfg.horas_dia)}</span></div>
+                <div style={{ fontSize: 11, color: C.textDim }}>
+                  {item.frecuencia} · <span style={{ color: C.gold, fontFamily: "'Space Mono',monospace" }}>{toTime(item.monto, rate, cfg.horas_dia)}</span>
+                  {item.diaPago && (() => {
+                    const hoy = new Date().getDate();
+                    const dias = item.diaPago - hoy;
+                    const venc = dias < 0;
+                    const hoyMismo = dias === 0;
+                    const cerca = dias > 0 && dias <= 3;
+                    const col = venc ? C.red : hoyMismo ? C.red : cerca ? "#E8895A" : C.textDim;
+                    const txt = venc ? `venció día ${item.diaPago}` : hoyMismo ? "¡hoy!" : `día ${item.diaPago} (${dias}d)`;
+                    return <span style={{ color: col, marginLeft: 6 }}>· 📅 {txt}</span>;
+                  })()}
+                </div>
               </div>
               <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 14, fontWeight: 700, marginRight: 8 }}>{fmt(item.monto)}</span>
               <button onClick={() => setEditItem({ ...item, monto: String(item.monto) })} style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 8, padding: "4px 8px", color: C.textDim, fontSize: 11, cursor: "pointer", fontFamily: "'Sora',sans-serif", marginRight: 4 }}>✏️</button>
@@ -895,6 +943,12 @@ function PlanTab({ presupuesto, setPresupuesto, txs, registrarMovimiento, deudas
               </div>
             </div>
 
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ fontSize: 11, color: C.textDim, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: ".06em" }}>Día de pago (opcional)</label>
+              <input type="number" inputMode="numeric" min="1" max="31" placeholder="ej: 5" value={newItem.diaPago} onChange={e => setNewItem(p => ({ ...p, diaPago: e.target.value }))} style={{ background: "#141414", border: `1px solid ${C.border}`, borderRadius: 12, padding: "13px 14px", color: C.text, fontFamily: "'Space Mono',monospace", fontSize: 18, width: "100%", outline: "none" }} />
+              <p style={{ fontSize: 11, color: C.textDim, marginTop: 6 }}>Día del mes en que se paga. Ej: 5 = cada día 5.</p>
+            </div>
+
             {deudas && deudas.length > 0 && (
               <div style={{ marginBottom: 20 }}>
                 <button onClick={() => setNewItem(p => ({ ...p, esDeuda: !p.esDeuda, deudaId: "" }))} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", background: newItem.esDeuda ? C.goldDim : "#141414", border: `1px solid ${newItem.esDeuda ? C.gold : C.border}`, borderRadius: 12, padding: "12px 14px", cursor: "pointer" }}>
@@ -941,6 +995,10 @@ function PlanTab({ presupuesto, setPresupuesto, txs, registrarMovimiento, deudas
                   <button key={f} onClick={() => setEditItem(p => ({ ...p, frecuencia: f }))} style={{ flex: 1, padding: "10px 4px", border: `1px solid ${editItem.frecuencia === f ? C.gold : C.border}`, borderRadius: 10, background: editItem.frecuencia === f ? C.goldDim : "#141414", color: editItem.frecuencia === f ? C.goldLight : C.textDim, fontSize: 11, cursor: "pointer", fontFamily: "'Sora',sans-serif", fontWeight: 600 }}>{f}</button>
                 ))}
               </div>
+            </div>
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ fontSize: 11, color: C.textDim, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: ".06em" }}>Día de pago (opcional)</label>
+              <input type="number" inputMode="numeric" min="1" max="31" placeholder="ej: 5" value={editItem.diaPago || ""} onChange={e => setEditItem(p => ({ ...p, diaPago: e.target.value }))} className="inp" style={{ fontFamily: "'Space Mono',monospace", fontSize: 18 }} />
             </div>
             <button onClick={saveEdit} style={{ background: C.gold, color: "#000", border: "none", borderRadius: 14, padding: "16px", fontFamily: "'Sora',sans-serif", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%" }}>Guardar cambios</button>
           </div>
@@ -1522,6 +1580,9 @@ export default function App() {
   const horasReales = (cfg.horas_dia + (cfg.horas_extra || 0));
   const rate = (cfg.ingreso_quincena + (cfg.ingreso_extra || 0)) / (horasReales * cfg.dias_semana * 2);
   const totalDeudaReal = deudas.reduce((a, d) => a + d.saldo_actual, 0);
+  const totalSaldoCuentas = accounts.filter(a => a.id !== "tdc").reduce((a, c) => a + (c.saldo || 0), 0);
+  const totalTdcReal = tdcs.reduce((a, t) => a + (t.saldo || 0), 0);
+  const patrimonioNeto = totalSaldoCuentas - totalDeudaReal - totalTdcReal;
   const health = useMemo(() => healthScore(txs, cfg, deudas, tdcs), [txs, cfg, deudas, tdcs]);
   const totalG = txs.filter(t => t.tipo === "gasto").reduce((a, t) => a + t.monto, 0);
   const totalI = txs.filter(t => t.tipo === "ingreso").reduce((a, t) => a + t.monto, 0);
@@ -1544,8 +1605,25 @@ export default function App() {
           <div className="scr">
             <div className="hdr">
               <p style={{ fontSize: 11, color: C.textDim, letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 8, fontWeight: 600 }}>{(() => { const p = getPeriodoActual(); return `Quincena ${p.quincena} · ${p.mes} ${p.anio}`; })()}</p>
-              <h1 style={{ fontFamily: "'Space Mono',monospace", fontSize: 44, fontWeight: 700, lineHeight: 1, color: balance >= 0 ? C.text : C.red }}>{balance < 0 ? "−" : ""}{fmt(balance)}</h1>
-              <p style={{ fontSize: 13, color: C.textDim, marginTop: 8 }}>balance · <span style={{ color: C.gold, fontFamily: "'Space Mono',monospace" }}>{toTime(Math.abs(balance), rate, cfg.horas_dia)}</span></p>
+              <p style={{ fontSize: 11, color: C.textDim, letterSpacing: ".06em", textTransform: "uppercase", fontWeight: 600, marginBottom: 4 }}>Patrimonio neto</p>
+              <h1 style={{ fontFamily: "'Space Mono',monospace", fontSize: 42, fontWeight: 700, lineHeight: 1, color: patrimonioNeto >= 0 ? C.green : C.red }}>{patrimonioNeto < 0 ? "−" : ""}{fmt(patrimonioNeto)}</h1>
+              <p style={{ fontSize: 12, color: C.textDim, marginTop: 8, lineHeight: 1.5 }}>Lo que tienes menos lo que debes. {patrimonioNeto < 0 ? "Estás en negativo — cada peso que pagas de deuda sube este número." : "Estás en positivo. Protégelo."}</p>
+            </div>
+
+            {/* Desglose patrimonio */}
+            <div style={{ padding: "0 20px 16px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <div style={{ background: C.surface, border: `1px solid ${C.green}33`, borderRadius: 14, padding: "14px 16px" }}>
+                  <div style={{ fontSize: 10, color: C.green, textTransform: "uppercase", letterSpacing: ".08em", fontWeight: 600, marginBottom: 6 }}>Tienes</div>
+                  <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 18, color: C.green, fontWeight: 700 }}>{fmt(totalSaldoCuentas)}</div>
+                  <div style={{ fontSize: 10, color: C.textDim, marginTop: 3 }}>en cuentas</div>
+                </div>
+                <div style={{ background: C.surface, border: `1px solid ${C.red}33`, borderRadius: 14, padding: "14px 16px" }}>
+                  <div style={{ fontSize: 10, color: C.red, textTransform: "uppercase", letterSpacing: ".08em", fontWeight: 600, marginBottom: 6 }}>Debes</div>
+                  <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 18, color: C.red, fontWeight: 700 }}>{fmt(totalDeudaReal + totalTdcReal)}</div>
+                  <div style={{ fontSize: 10, color: C.textDim, marginTop: 3 }}>deudas + TDC</div>
+                </div>
+              </div>
             </div>
 
             {/* Health card */}
@@ -1579,6 +1657,60 @@ export default function App() {
                 </div>
               </div>
             </div>
+
+            {/* Proyección a futuro */}
+            {(deudas.length > 0 || tdcs.length > 0 || totalSaldoCuentas > 0) && (() => {
+              const ahorroMensual = Math.max(0, (cfg.ingreso_quincena * 2) - (presupuesto.q1.reduce((a,i)=>a+i.monto,0) + presupuesto.q2.reduce((a,i)=>a+i.monto,0)));
+              const proy = proyectarPatrimonio(patrimonioNeto, deudas, tdcs, ahorroMensual, 36);
+              const dataChart = proy.puntos.filter((_, i) => i % 3 === 0);
+              return (
+                <div style={{ padding: "0 20px 16px" }}>
+                  <div className="card" style={{ background: `${C.gold}06`, border: `1px solid ${C.gold}33` }}>
+                    <p style={{ fontSize: 10, color: C.gold, letterSpacing: ".12em", textTransform: "uppercase", fontWeight: 600, marginBottom: 4 }}>Hacia dónde vas</p>
+                    <p style={{ fontSize: 12, color: C.textDim, marginBottom: 14 }}>Si mantienes el ritmo actual de pagos y ahorro.</p>
+
+                    <ResponsiveContainer width="100%" height={140}>
+                      <AreaChart data={dataChart} margin={{ top: 5, right: 5, left: 5, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="patrimGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor={C.gold} stopOpacity={0.4} />
+                            <stop offset="100%" stopColor={C.gold} stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <ReferenceLine y={0} stroke="#5A5550" strokeDasharray="3 3" />
+                        <Area type="monotone" dataKey="patrimonio" stroke={C.gold} strokeWidth={2.5} fill="url(#patrimGrad)" />
+                        <XAxis dataKey="mes" tickFormatter={m => m === 0 ? "hoy" : `${m}m`} tick={{ fill: "#5A5550", fontSize: 10, fontFamily: "Space Mono" }} axisLine={false} tickLine={false} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 14 }}>
+                      {proy.mesCrucePositivo !== null && proy.mesCrucePositivo > 0 && (
+                        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: `${C.green}10`, borderRadius: 12, border: `1px solid ${C.green}33` }}>
+                          <span style={{ fontSize: 22 }}>🚀</span>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: C.green }}>Cruzas a patrimonio positivo</div>
+                            <div style={{ fontSize: 11, color: C.textDim, marginTop: 2 }}>en {proy.mesCrucePositivo} meses · {mesAFecha(proy.mesCrucePositivo)}</div>
+                          </div>
+                        </div>
+                      )}
+                      {proy.mesLibreDeuda !== null && (
+                        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: `${C.gold}10`, borderRadius: 12, border: `1px solid ${C.gold}33` }}>
+                          <span style={{ fontSize: 22 }}>⛓️‍💥</span>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: C.goldLight }}>Libre de deudas</div>
+                            <div style={{ fontSize: 11, color: C.textDim, marginTop: 2 }}>en {proy.mesLibreDeuda} meses · {mesAFecha(proy.mesLibreDeuda)}</div>
+                          </div>
+                        </div>
+                      )}
+                      <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", background: "#0d0d0d", borderRadius: 12 }}>
+                        <span style={{ fontSize: 12, color: C.textDim }}>Patrimonio en 1 año</span>
+                        <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 14, fontWeight: 700, color: proy.puntos[12].patrimonio >= 0 ? C.green : C.red }}>{proy.puntos[12].patrimonio < 0 ? "−" : ""}{fmt(proy.puntos[12].patrimonio)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Tarifa real */}
             {(cfg.horas_extra > 0 || cfg.ingreso_extra > 0) && (
