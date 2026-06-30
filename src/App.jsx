@@ -1529,6 +1529,7 @@ export default function App() {
   const [tdcs, setTdcs] = useState(() => loadFromStorage("fp_tdcs", INIT_TDCS));
   const [showTx, setShowTx] = useState(false);
   const [editAccount, setEditAccount] = useState(null);
+  const [editTx, setEditTx] = useState(null);
 
   function saveAccountBalance() {
     setAccounts(prev => prev.map(a => a.id === editAccount.id ? { ...a, saldo: parseFloat(editAccount.saldo) || 0 } : a));
@@ -1560,6 +1561,22 @@ export default function App() {
 
   function eliminarMovimientoPorPres(presId) {
     setTxs(p => p.filter(t => t.presId !== presId));
+  }
+
+  function editarMovimiento(txId, cambios) {
+    const original = txs.find(t => t.id === txId);
+    if (!original) return;
+    // Revertir saldo viejo
+    setAccounts(prev => prev.map(a => {
+      let saldo = a.saldo || 0;
+      if (original.tipo === "gasto" && a.id === original.cuentaId) saldo += original.monto;
+      if (original.tipo === "ingreso" && a.id === original.cuentaId) saldo -= original.monto;
+      // Aplicar saldo nuevo
+      if (cambios.tipo === "gasto" && a.id === cambios.cuentaId) saldo -= cambios.monto;
+      if (cambios.tipo === "ingreso" && a.id === cambios.cuentaId) saldo += cambios.monto;
+      return { ...a, saldo };
+    }));
+    setTxs(p => p.map(t => t.id === txId ? { ...t, ...cambios } : t));
   }
 
   // Registra un movimiento y actualiza cuentas/tdcs en cascada
@@ -1887,6 +1904,7 @@ export default function App() {
                               <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 14, fontWeight: 700, color: t.tipo === "ingreso" ? C.green : t.tipo === "transferencia" ? C.blue : C.text }}>{t.tipo === "ingreso" ? "+" : t.tipo === "transferencia" ? "↔" : "−"}{fmt(t.monto)}</div>
                               <div style={{ fontSize: 10, color: C.gold, marginTop: 2, fontFamily: "'Space Mono',monospace" }}>{toTime(t.monto, rate, cfg.horas_dia)}</div>
                             </div>
+                            <button onClick={() => setEditTx({ ...t, monto: String(t.monto) })} style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 8, padding: "4px 8px", color: C.textDim, fontSize: 11, cursor: "pointer", flexShrink: 0, marginRight: 4 }}>✏️</button>
                             <button onClick={() => { if (confirm(`¿Eliminar "${t.nota || getName(t.catId, t.subId)}" de ${fmt(t.monto)}?`)) eliminarMovimiento(t.id); }} style={{ background: "none", border: `1px solid ${C.red}33`, borderRadius: 8, padding: "4px 8px", color: C.red, fontSize: 13, cursor: "pointer", flexShrink: 0, lineHeight: 1 }}>×</button>
                           </div>
                         );
@@ -1983,10 +2001,65 @@ export default function App() {
               </div>
               <div style={{ marginBottom: 20 }}>
                 <label style={{ fontSize: 11, color: C.textDim, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: ".06em" }}>Saldo actual</label>
-                <input type="number" inputMode="decimal" value={editAccount.saldo} onChange={e => setEditAccount(p => ({ ...p, saldo: e.target.value }))} style={{ background: "#141414", border: `1px solid ${C.border}`, borderRadius: 12, padding: "13px 14px", color: C.text, fontFamily: "'Space Mono',monospace", fontSize: 22, width: "100%", outline: "none", textAlign: "center" }} />
-                <p style={{ fontSize: 12, color: C.textDim, marginTop: 8, textAlign: "center" }}>Ajusta manualmente si no coincide con tu banco.</p>
+                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                  <button onClick={() => setEditAccount(p => { const v = String(p.saldo || ""); const neg = v.startsWith("-"); return { ...p, saldo: neg ? v.slice(1) : "-" + v }; })} style={{ width: 48, height: 48, borderRadius: 12, border: `1px solid ${String(editAccount.saldo).startsWith("-") ? C.red : C.border}`, background: String(editAccount.saldo).startsWith("-") ? `${C.red}22` : "#141414", color: String(editAccount.saldo).startsWith("-") ? C.red : C.textDim, fontSize: 22, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>±</button>
+                  <input type="number" inputMode="decimal" value={editAccount.saldo} onChange={e => setEditAccount(p => ({ ...p, saldo: e.target.value }))} style={{ background: "#141414", border: `1px solid ${C.border}`, borderRadius: 12, padding: "13px 14px", color: String(editAccount.saldo).startsWith("-") ? C.red : C.text, fontFamily: "'Space Mono',monospace", fontSize: 22, flex: 1, outline: "none", textAlign: "center" }} />
+                </div>
+                <p style={{ fontSize: 12, color: C.textDim, marginTop: 8, textAlign: "center" }}>Toca ± para saldo negativo (sobregiro o deuda en la cuenta).</p>
               </div>
               <button onClick={saveAccountBalance} style={{ background: C.gold, color: "#000", border: "none", borderRadius: 14, padding: "16px", fontFamily: "'Sora',sans-serif", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%" }}>Guardar saldo</button>
+            </div>
+          </div>
+        )}
+
+        {/* Edit TX modal */}
+        {editTx && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", backdropFilter: "blur(10px)", zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end", maxWidth: 430, left: "50%", transform: "translateX(-50%)", width: "100%" }} onClick={() => setEditTx(null)}>
+            <div style={{ background: "#111", borderRadius: "24px 24px 0 0", padding: "28px 20px 48px", border: `1px solid ${C.border}`, maxHeight: "85vh", overflowY: "auto", width: "100%" }} onClick={e => e.stopPropagation()}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                <h3 style={{ fontSize: 20, fontWeight: 700 }}>Editar movimiento</h3>
+                <button onClick={() => setEditTx(null)} style={{ background: "#1a1a1a", border: `1px solid ${C.border}`, borderRadius: "50%", width: 32, height: 32, color: C.textDim, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+              </div>
+
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: 11, color: C.textDim, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: ".06em" }}>Monto</label>
+                <input type="number" inputMode="decimal" value={editTx.monto} onChange={e => setEditTx(p => ({ ...p, monto: e.target.value }))} style={{ background: "#141414", border: `1px solid ${C.border}`, borderRadius: 12, padding: "13px 14px", color: C.text, fontFamily: "'Space Mono',monospace", fontSize: 22, width: "100%", outline: "none", textAlign: "center" }} />
+              </div>
+
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: 11, color: C.textDim, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: ".06em" }}>Categoría</label>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+                  {cats.map(c => (
+                    <button key={c.id} onClick={() => setEditTx(p => ({ ...p, catId: c.id, subId: "" }))} style={{ background: editTx.catId === c.id ? `${c.color}22` : "#141414", border: `1px solid ${editTx.catId === c.id ? c.color : C.border}`, borderRadius: 10, padding: "10px 6px", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                      <span style={{ fontSize: 18 }}>{c.emoji}</span>
+                      <span style={{ fontSize: 9, color: editTx.catId === c.id ? c.color : C.textDim, textAlign: "center", lineHeight: 1.2 }}>{c.nombre}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: 11, color: C.textDim, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: ".06em" }}>Cuenta</label>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {accounts.map(a => (
+                    <button key={a.id} onClick={() => setEditTx(p => ({ ...p, cuentaId: a.id }))} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "8px 12px", borderRadius: 100, fontSize: 12, background: editTx.cuentaId === a.id ? C.goldDim : "#141414", border: `1px solid ${editTx.cuentaId === a.id ? C.gold : C.border}`, color: editTx.cuentaId === a.id ? C.goldLight : C.text, cursor: "pointer" }}>
+                      <span>{a.emoji}</span><span>{a.nombre}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: 11, color: C.textDim, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: ".06em" }}>Fecha</label>
+                <input type="date" value={editTx.fecha} onChange={e => setEditTx(p => ({ ...p, fecha: e.target.value }))} style={{ background: "#141414", border: `1px solid ${C.border}`, borderRadius: 12, padding: "13px 14px", color: C.text, fontFamily: "'Sora',sans-serif", fontSize: 15, width: "100%", outline: "none" }} />
+              </div>
+
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ fontSize: 11, color: C.textDim, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: ".06em" }}>Nota</label>
+                <input value={editTx.nota || ""} onChange={e => setEditTx(p => ({ ...p, nota: e.target.value }))} style={{ background: "#141414", border: `1px solid ${C.border}`, borderRadius: 12, padding: "13px 14px", color: C.text, fontFamily: "'Sora',sans-serif", fontSize: 15, width: "100%", outline: "none" }} />
+              </div>
+
+              <button onClick={() => { editarMovimiento(editTx.id, { monto: parseFloat(editTx.monto) || 0, catId: editTx.catId, subId: editTx.subId, cuentaId: editTx.cuentaId, fecha: editTx.fecha, nota: editTx.nota, mes: editTx.fecha.slice(0,7) }); setEditTx(null); }} style={{ background: C.gold, color: "#000", border: "none", borderRadius: 14, padding: "16px", fontFamily: "'Sora',sans-serif", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%" }}>Guardar cambios</button>
             </div>
           </div>
         )}
