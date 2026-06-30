@@ -691,7 +691,7 @@ function AnalisisTab({ txs, cats, cfg, rate }) {
 }
 
 // ── PRESUPUESTO TAB ───────────────────────────────────────────────────────────
-function PlanTab({ presupuesto, setPresupuesto, txs, registrarMovimiento, deudas, cfg, rate }) {
+function PlanTab({ presupuesto, setPresupuesto, txs, registrarMovimiento, eliminarMovimientoPorPres, deudas, cfg, rate }) {
   const [quincena, setQuincena] = useState(() => getPeriodoActual().quincena);
   const [showAdd, setShowAdd] = useState(false);
   const [editItem, setEditItem] = useState(null);
@@ -732,9 +732,9 @@ function PlanTab({ presupuesto, setPresupuesto, txs, registrarMovimiento, deudas
     const nowPagado = !item.pagado;
     setPresupuesto(p => ({ ...p, [qKey]: p[qKey].map(i => i.id === id ? { ...i, pagado: nowPagado } : i) }));
 
-    // Si se marca como pagado, registrar el movimiento en el historial
-    if (nowPagado && item.catId) {
-      const fecha = new Date().toISOString().split("T")[0];
+    const fecha = new Date().toISOString().split("T")[0];
+    if (nowPagado) {
+      // Crear registro en historial al pagar (siempre, con o sin categoria)
       registrarMovimiento({
         id: `tx_pres_${id}_${Date.now()}`,
         fecha,
@@ -746,12 +746,16 @@ function PlanTab({ presupuesto, setPresupuesto, txs, registrarMovimiento, deudas
         nota: `Compromiso: ${item.nombre}`,
         quincena,
         mes: fecha.slice(0, 7),
-        catId: item.catId,
+        catId: item.catId || "otros",
         subId: item.subId || "",
         cuentaId: item.cuentaId || "nu_nom",
         deudaId: item.deudaId || undefined,
         origen: "presupuesto",
+        presId: id,
       });
+    } else {
+      // Si se des-tacha, eliminar el registro asociado
+      eliminarMovimientoPorPres(id);
     }
   }
   function del(id) { setPresupuesto(p => ({ ...p, [qKey]: p[qKey].filter(i => i.id !== id) })); }
@@ -1540,6 +1544,24 @@ export default function App() {
   useEffect(() => { saveToStorage("fp_deudas", deudas); }, [deudas]);
   useEffect(() => { saveToStorage("fp_tdcs", tdcs); }, [tdcs]);
 
+  // Elimina un movimiento y revierte el saldo
+  function eliminarMovimiento(txId) {
+    const tx = txs.find(t => t.id === txId);
+    if (!tx) return;
+    setTxs(p => p.filter(t => t.id !== txId));
+    // Revertir saldo de cuenta
+    setAccounts(prev => prev.map(a => {
+      let saldo = a.saldo || 0;
+      if (tx.tipo === "gasto" && a.id === tx.cuentaId) saldo += tx.monto;
+      if (tx.tipo === "ingreso" && a.id === tx.cuentaId) saldo -= tx.monto;
+      return { ...a, saldo };
+    }));
+  }
+
+  function eliminarMovimientoPorPres(presId) {
+    setTxs(p => p.filter(t => t.presId !== presId));
+  }
+
   // Registra un movimiento y actualiza cuentas/tdcs en cascada
   function registrarMovimiento(tx) {
     setTxs(p => [tx, ...p]);
@@ -1828,7 +1850,7 @@ export default function App() {
         )}
 
         {/* PLAN */}
-        {tab === "plan" && <PlanTab presupuesto={presupuesto} setPresupuesto={setPresupuesto} txs={txs} registrarMovimiento={registrarMovimiento} deudas={deudas} cfg={cfg} rate={rate} />}
+        {tab === "plan" && <PlanTab presupuesto={presupuesto} setPresupuesto={setPresupuesto} txs={txs} registrarMovimiento={registrarMovimiento} eliminarMovimientoPorPres={eliminarMovimientoPorPres} deudas={deudas} cfg={cfg} rate={rate} />}
         {tab === "deudas" && <DeudasTab deudas={deudas} setDeudas={setDeudas} tdcs={tdcs} setTdcs={setTdcs} rate={rate} cfg={cfg} />}
 
         {/* HISTORIAL */}
@@ -1859,12 +1881,13 @@ export default function App() {
                             <div style={{ width: 40, height: 40, borderRadius: 12, background: "#181818", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>{getEmoji(t.catId, t.subId)}</div>
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ fontSize: 14, fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.nota || getName(t.catId, t.subId)}</div>
-                              <div style={{ fontSize: 11, color: C.textDim, marginTop: 2 }}>{acc?.emoji} {acc?.nombre} · {fmtDate(t.fecha)}</div>
+                              <div style={{ fontSize: 11, color: C.textDim, marginTop: 2 }}>{acc?.emoji} {acc?.nombre} · {fmtDate(t.fecha)}{t.origen === "presupuesto" ? " · 📋" : ""}</div>
                             </div>
-                            <div style={{ textAlign: "right", flexShrink: 0 }}>
+                            <div style={{ textAlign: "right", flexShrink: 0, marginRight: 8 }}>
                               <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 14, fontWeight: 700, color: t.tipo === "ingreso" ? C.green : t.tipo === "transferencia" ? C.blue : C.text }}>{t.tipo === "ingreso" ? "+" : t.tipo === "transferencia" ? "↔" : "−"}{fmt(t.monto)}</div>
                               <div style={{ fontSize: 10, color: C.gold, marginTop: 2, fontFamily: "'Space Mono',monospace" }}>{toTime(t.monto, rate, cfg.horas_dia)}</div>
                             </div>
+                            <button onClick={() => { if (confirm(`¿Eliminar "${t.nota || getName(t.catId, t.subId)}" de ${fmt(t.monto)}?`)) eliminarMovimiento(t.id); }} style={{ background: "none", border: `1px solid ${C.red}33`, borderRadius: 8, padding: "4px 8px", color: C.red, fontSize: 13, cursor: "pointer", flexShrink: 0, lineHeight: 1 }}>×</button>
                           </div>
                         );
                       })}
