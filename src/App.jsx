@@ -7,7 +7,7 @@ const FONTS = `
 
 const C = {
   bg: "#080808", surface: "#101010", surfaceHigh: "#161616", border: "#1e1e1e",
-  gold: "#C9A84C", goldLight: "#E8C97A", goldDim: "#2E2410",
+  gold: "#2D7FF9", goldLight: "#5B9DFF", goldDim: "#0E1F3D",
   green: "#2ECC71", greenDim: "#0D2E1A", red: "#E74C3C", redDim: "#2E0D0D",
   blue: "#3498DB", purple: "#9B59B6",
   text: "#F0EDE6", textDim: "#555050", textMid: "#999490",
@@ -182,10 +182,10 @@ const CSS = `
   .tabbar { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 430px; background: rgba(8,8,8,0.97); backdrop-filter: blur(24px); border-top: 1px solid #1a1a1a; display: flex; padding: 8px 0 22px; z-index: 100; }
   .ti { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; padding: 7px 0; opacity: .25; transition: opacity .2s; background: none; border: none; color: #F0EDE6; }
   .ti.on { opacity: 1; }
-  .ti.on .tlbl { color: #C9A84C; }
+  .ti.on .tlbl { color: #2D7FF9; }
   .tlbl { font-size: 9px; font-family: 'Sora', sans-serif; letter-spacing: .04em; }
   .ticon { font-size: 18px; }
-  .fab { position: fixed; bottom: 84px; right: calc(50% - 215px + 18px); width: 54px; height: 54px; border-radius: 50%; background: #C9A84C; border: none; cursor: pointer; z-index: 90; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 28px #C9A84C55; font-size: 26px; color: #000; font-weight: 300; transition: transform .15s; }
+  .fab { position: fixed; bottom: 84px; right: calc(50% - 215px + 18px); width: 54px; height: 54px; border-radius: 50%; background: #2D7FF9; border: none; cursor: pointer; z-index: 90; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 28px #2D7FF955; font-size: 26px; color: #000; font-weight: 300; transition: transform .15s; }
   .fab:active { transform: scale(.92); }
   .ptk { height: 5px; background: #1e1e1e; border-radius: 100px; overflow: hidden; }
   .ptf { height: 100%; border-radius: 100px; transition: width .7s cubic-bezier(.23,1,.32,1); }
@@ -193,10 +193,10 @@ const CSS = `
   .row:last-child { border-bottom: none; }
   .sec { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: #555050; font-weight: 600; margin-bottom: 10px; font-family: 'Sora', sans-serif; }
   .inp { background: #141414; border: 1px solid #1e1e1e; border-radius: 12px; padding: 13px 14px; color: #F0EDE6; font-family: 'Sora', sans-serif; font-size: 15px; width: 100%; outline: none; transition: border-color .2s; }
-  .inp:focus { border-color: #C9A84C66; }
+  .inp:focus { border-color: #2D7FF966; }
   select.inp { -webkit-appearance: none; }
   .chip { display: inline-flex; align-items: center; gap: 5px; padding: 5px 11px; border-radius: 100px; font-size: 12px; background: #161616; border: 1px solid #1e1e1e; cursor: pointer; transition: all .18s; font-family: 'Sora', sans-serif; }
-  .chip.sel { background: #2E2410; border-color: #C9A84C; color: #C9A84C; }
+  .chip.sel { background: #0E1F3D; border-color: #2D7FF9; color: #2D7FF9; }
 `;
 
 // ── WEBHOOK ───────────────────────────────────────────────────────────────────
@@ -330,7 +330,7 @@ function TxForm({ cats, accounts, cfg, rate, onSave, onClose }) {
             <div style={{ fontSize: 14, color: catId ? C.text : C.textDim, fontWeight: catId ? 500 : 400 }}>{currentCat?.nombre || "Seleccionar"}</div>
           </div>
           {catId && currentCat?.subs?.length > 0 && (
-            <button onClick={e => { e.stopPropagation(); setShowSubPicker(true); }} style={{ background: subId ? "#2E2410" : "#1a1a1a", border: `1px solid ${subId ? C.gold : C.border}`, borderRadius: 10, padding: "6px 10px", cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}>
+            <button onClick={e => { e.stopPropagation(); setShowSubPicker(true); }} style={{ background: subId ? "#0E1F3D" : "#1a1a1a", border: `1px solid ${subId ? C.gold : C.border}`, borderRadius: 10, padding: "6px 10px", cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}>
               <span style={{ fontSize: 14 }}>{currentSub?.emoji || "·"}</span>
               <span style={{ fontSize: 12, color: subId ? C.goldLight : C.textDim, fontFamily: "'Sora',sans-serif" }}>{currentSub?.nombre || "Sub"}</span>
             </button>
@@ -871,8 +871,8 @@ function PlanTab({ presupuesto, setPresupuesto, txs, registrarMovimiento, deudas
       </div>
 
       {showAdd && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", backdropFilter: "blur(10px)", zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end", maxWidth: 430, left: "50%", transform: "translateX(-50%)" }} onClick={() => setShowAdd(false)}>
-          <div style={{ background: "#111", borderRadius: "24px 24px 0 0", padding: "28px 20px 48px", border: `1px solid ${C.border}` }} onClick={e => e.stopPropagation()}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", backdropFilter: "blur(10px)", zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end", maxWidth: 430, left: "50%", transform: "translateX(-50%)", width: "100%" }} onClick={() => setShowAdd(false)}>
+          <div style={{ background: "#111", borderRadius: "24px 24px 0 0", padding: "28px 20px 48px", border: `1px solid ${C.border}`, width: "100%" }} onClick={e => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
               <h3 style={{ fontSize: 20, fontWeight: 700 }}>Nuevo compromiso</h3>
               <button onClick={() => setShowAdd(false)} style={{ background: "#1a1a1a", border: `1px solid ${C.border}`, borderRadius: "50%", width: 32, height: 32, color: C.textDim, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
@@ -920,8 +920,8 @@ function PlanTab({ presupuesto, setPresupuesto, txs, registrarMovimiento, deudas
       )}
 
       {editItem && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", backdropFilter: "blur(10px)", zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end", maxWidth: 430, left: "50%", transform: "translateX(-50%)" }} onClick={() => setEditItem(null)}>
-          <div style={{ background: "#111", borderRadius: "24px 24px 0 0", padding: "28px 20px 48px", border: `1px solid ${C.border}` }} onClick={e => e.stopPropagation()}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", backdropFilter: "blur(10px)", zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end", maxWidth: 430, left: "50%", transform: "translateX(-50%)", width: "100%" }} onClick={() => setEditItem(null)}>
+          <div style={{ background: "#111", borderRadius: "24px 24px 0 0", padding: "28px 20px 48px", border: `1px solid ${C.border}`, width: "100%" }} onClick={e => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
               <h3 style={{ fontSize: 20, fontWeight: 700 }}>Editar compromiso</h3>
               <button onClick={() => setEditItem(null)} style={{ background: "#1a1a1a", border: `1px solid ${C.border}`, borderRadius: "50%", width: 32, height: 32, color: C.textDim, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
@@ -963,19 +963,14 @@ function saveToStorage(key, value) {
 
 
 // ── DEUDAS TAB ────────────────────────────────────────────────────────────────
-function DeudasTab({ deudas, setDeudas, tdcs, setTdcs, accounts, setAccounts, rate, cfg }) {
+function DeudasTab({ deudas, setDeudas, tdcs, setTdcs, rate, cfg }) {
   const [showAdd, setShowAdd] = useState(false);
   const [editDeuda, setEditDeuda] = useState(null);
-  const [newD, setNewD] = useState({ nombre: "", emoji: "⛓️", saldo_inicial: "", saldo_actual: "", tasa_mensual: "", pago_mensual: "" });
+  const [newD, setNewD] = useState({ nombre: "", emoji: "⛓️", saldo_inicial: "", saldo_actual: "", tasa_mensual: "", pago_mensual: "", plazo_meses: "" });
   const [showAddTdc, setShowAddTdc] = useState(false);
   const [editTdc, setEditTdc] = useState(null);
   const [newT, setNewT] = useState({ nombre: "", emoji: "💳", limite: "", saldo: "", tasa_mensual: "", fecha_corte: "", fecha_pago: "" });
-  const [editAccount, setEditAccount] = useState(null);
 
-  function saveAccountBalance() {
-    setAccounts(prev => prev.map(a => a.id === editAccount.id ? { ...a, saldo: parseFloat(editAccount.saldo) || 0 } : a));
-    setEditAccount(null);
-  }
 
   function add() {
     if (!newD.nombre || !newD.saldo_actual) return;
@@ -986,10 +981,11 @@ function DeudasTab({ deudas, setDeudas, tdcs, setTdcs, accounts, setAccounts, ra
       saldo_actual: parseFloat(newD.saldo_actual),
       tasa_mensual: parseFloat(newD.tasa_mensual) || 0,
       pago_mensual: parseFloat(newD.pago_mensual) || 0,
+      plazo_meses: parseFloat(newD.plazo_meses) || 0,
       fecha_inicio: new Date().toISOString().split("T")[0],
     };
     setDeudas(p => [...p, d]);
-    setNewD({ nombre: "", emoji: "⛓️", saldo_inicial: "", saldo_actual: "", tasa_mensual: "", pago_mensual: "" });
+    setNewD({ nombre: "", emoji: "⛓️", saldo_inicial: "", saldo_actual: "", tasa_mensual: "", pago_mensual: "", plazo_meses: "" });
     setShowAdd(false);
   }
 
@@ -1015,6 +1011,7 @@ function DeudasTab({ deudas, setDeudas, tdcs, setTdcs, accounts, setAccounts, ra
       saldo_actual: parseFloat(editDeuda.saldo_actual) || d.saldo_actual,
       tasa_mensual: parseFloat(editDeuda.tasa_mensual) || 0,
       pago_mensual: parseFloat(editDeuda.pago_mensual) || 0,
+      plazo_meses: parseFloat(editDeuda.plazo_meses) || 0,
     } : d));
     setEditDeuda(null);
   }
@@ -1040,24 +1037,6 @@ function DeudasTab({ deudas, setDeudas, tdcs, setTdcs, accounts, setAccounts, ra
       </div>
 
       <div style={{ padding: "0 20px" }}>
-        {/* Cuentas */}
-        <p style={{ fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: "#5A5550", fontWeight: 600, marginBottom: 10 }}>Mis cuentas</p>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
-          {accounts.filter(a => a.id !== "tdc" || tdcs.length === 0).map(a => (
-            <div key={a.id} style={{ background: "#101010", border: "1px solid #1e1e1e", borderRadius: 14, padding: "14px 16px", display: "flex", alignItems: "center", gap: 12 }}>
-              <span style={{ fontSize: 22 }}>{a.emoji}</span>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 14, fontWeight: 600 }}>{a.nombre}</div>
-                <div style={{ fontSize: 11, color: "#5A5550" }}>{a.tipo}</div>
-              </div>
-              <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 16, fontWeight: 700, color: (a.saldo || 0) >= 0 ? "#F0EDE6" : "#E53E3E" }}>
-                ${(a.saldo || 0).toLocaleString("es-MX")}
-              </div>
-              <button onClick={() => setEditAccount({ ...a, saldo: String(a.saldo || 0) })} style={{ background: "none", border: "1px solid #1e1e1e", borderRadius: 8, padding: "4px 8px", color: "#5A5550", fontSize: 11, cursor: "pointer" }}>✏️</button>
-            </div>
-          ))}
-        </div>
-
         {/* Resumen */}
         {deudas.length > 0 && (
           <div style={{ background: "#101010", border: `1px solid #E53E3E44`, borderRadius: 18, padding: 18, marginBottom: 16 }}>
@@ -1084,7 +1063,7 @@ function DeudasTab({ deudas, setDeudas, tdcs, setTdcs, accounts, setAccounts, ra
         {/* Lista deudas */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
           <p style={{ fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: "#5A5550", fontWeight: 600 }}>Mis deudas</p>
-          <button onClick={() => setShowAdd(true)} style={{ background: "#C9A84C", border: "none", borderRadius: 8, padding: "5px 12px", color: "#000", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'Sora',sans-serif" }}>+ Agregar</button>
+          <button onClick={() => setShowAdd(true)} style={{ background: "#2D7FF9", border: "none", borderRadius: 8, padding: "5px 12px", color: "#000", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'Sora',sans-serif" }}>+ Agregar</button>
         </div>
 
         {deudas.length === 0 && (
@@ -1159,8 +1138,8 @@ function DeudasTab({ deudas, setDeudas, tdcs, setTdcs, accounts, setAccounts, ra
 
       {/* Add modal */}
       {showAdd && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", backdropFilter: "blur(10px)", zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end", maxWidth: 430, left: "50%", transform: "translateX(-50%)" }} onClick={() => setShowAdd(false)}>
-          <div style={{ background: "#111", borderRadius: "24px 24px 0 0", padding: "28px 20px 48px", border: "1px solid #1e1e1e", maxHeight: "85vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", backdropFilter: "blur(10px)", zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end", maxWidth: 430, left: "50%", transform: "translateX(-50%)", width: "100%" }} onClick={() => setShowAdd(false)}>
+          <div style={{ background: "#111", borderRadius: "24px 24px 0 0", padding: "28px 20px 48px", border: "1px solid #1e1e1e", maxHeight: "85vh", overflowY: "auto", width: "100%" }} onClick={e => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
               <h3 style={{ fontSize: 20, fontWeight: 700 }}>Nueva deuda</h3>
               <button onClick={() => setShowAdd(false)} style={{ background: "#1a1a1a", border: "1px solid #1e1e1e", borderRadius: "50%", width: 32, height: 32, color: "#5A5550", fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
@@ -1174,21 +1153,22 @@ function DeudasTab({ deudas, setDeudas, tdcs, setTdcs, accounts, setAccounts, ra
               { l: "Saldo actual (lo que debes hoy)", k: "saldo_actual", ph: "55000" },
               { l: "Tasa de interés mensual (%)", k: "tasa_mensual", ph: "3.5" },
               { l: "Pago mensual", k: "pago_mensual", ph: "2100" },
+              { l: "Plazo total en meses (opcional)", k: "plazo_meses", ph: "36" },
             ].map(f => (
               <div key={f.k} style={{ marginBottom: 14 }}>
                 <label style={{ fontSize: 11, color: "#5A5550", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: ".06em" }}>{f.l}</label>
                 <input type="number" inputMode="decimal" placeholder={f.ph} value={newD[f.k]} onChange={e => setNewD(p => ({ ...p, [f.k]: e.target.value }))} style={{ ...inp, fontFamily: "'Space Mono',monospace", fontSize: 18 }} />
               </div>
             ))}
-            <button onClick={add} style={{ background: (!newD.nombre || !newD.saldo_actual) ? "#1a1a1a" : "#C9A84C", color: (!newD.nombre || !newD.saldo_actual) ? "#5A5550" : "#000", border: "none", borderRadius: 14, padding: "16px", fontFamily: "'Sora',sans-serif", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%", marginTop: 6 }}>Agregar deuda</button>
+            <button onClick={add} style={{ background: (!newD.nombre || !newD.saldo_actual) ? "#1a1a1a" : "#2D7FF9", color: (!newD.nombre || !newD.saldo_actual) ? "#5A5550" : "#000", border: "none", borderRadius: 14, padding: "16px", fontFamily: "'Sora',sans-serif", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%", marginTop: 6 }}>Agregar deuda</button>
           </div>
         </div>
       )}
 
       {/* Edit modal */}
       {editDeuda && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", backdropFilter: "blur(10px)", zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end", maxWidth: 430, left: "50%", transform: "translateX(-50%)" }} onClick={() => setEditDeuda(null)}>
-          <div style={{ background: "#111", borderRadius: "24px 24px 0 0", padding: "28px 20px 48px", border: "1px solid #1e1e1e", maxHeight: "85vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", backdropFilter: "blur(10px)", zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end", maxWidth: 430, left: "50%", transform: "translateX(-50%)", width: "100%" }} onClick={() => setEditDeuda(null)}>
+          <div style={{ background: "#111", borderRadius: "24px 24px 0 0", padding: "28px 20px 48px", border: "1px solid #1e1e1e", maxHeight: "85vh", overflowY: "auto", width: "100%" }} onClick={e => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
               <h3 style={{ fontSize: 20, fontWeight: 700 }}>Editar deuda</h3>
               <button onClick={() => setEditDeuda(null)} style={{ background: "#1a1a1a", border: "1px solid #1e1e1e", borderRadius: "50%", width: 32, height: 32, color: "#5A5550", fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
@@ -1201,13 +1181,14 @@ function DeudasTab({ deudas, setDeudas, tdcs, setTdcs, accounts, setAccounts, ra
               { l: "Saldo actual", k: "saldo_actual" },
               { l: "Tasa mensual (%)", k: "tasa_mensual" },
               { l: "Pago mensual", k: "pago_mensual" },
+              { l: "Plazo total (meses)", k: "plazo_meses" },
             ].map(f => (
               <div key={f.k} style={{ marginBottom: 14 }}>
                 <label style={{ fontSize: 11, color: "#5A5550", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: ".06em" }}>{f.l}</label>
-                <input type="number" inputMode="decimal" value={editDeuda[f.k]} onChange={e => setEditDeuda(p => ({ ...p, [f.k]: e.target.value }))} style={{ ...inp, fontFamily: "'Space Mono',monospace", fontSize: 18 }} />
+                <input type="number" inputMode="decimal" value={editDeuda[f.k] || ""} onChange={e => setEditDeuda(p => ({ ...p, [f.k]: e.target.value }))} style={{ ...inp, fontFamily: "'Space Mono',monospace", fontSize: 18 }} />
               </div>
             ))}
-            <button onClick={saveEdit} style={{ background: "#C9A84C", color: "#000", border: "none", borderRadius: 14, padding: "16px", fontFamily: "'Sora',sans-serif", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%" }}>Guardar cambios</button>
+            <button onClick={saveEdit} style={{ background: "#2D7FF9", color: "#000", border: "none", borderRadius: 14, padding: "16px", fontFamily: "'Sora',sans-serif", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%" }}>Guardar cambios</button>
           </div>
         </div>
       )}
@@ -1216,7 +1197,7 @@ function DeudasTab({ deudas, setDeudas, tdcs, setTdcs, accounts, setAccounts, ra
       <div style={{ padding: "0 20px 16px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, marginTop: 24 }}>
           <p style={{ fontSize: 10, letterSpacing: ".1em", textTransform: "uppercase", color: "#5A5550", fontWeight: 600 }}>Tarjetas de crédito</p>
-          <button onClick={() => setShowAddTdc(true)} style={{ background: "#C9A84C", border: "none", borderRadius: 8, padding: "5px 12px", color: "#000", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'Sora',sans-serif" }}>+ Agregar</button>
+          <button onClick={() => setShowAddTdc(true)} style={{ background: "#2D7FF9", border: "none", borderRadius: 8, padding: "5px 12px", color: "#000", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'Sora',sans-serif" }}>+ Agregar</button>
         </div>
 
         {tdcs.length === 0 && (
@@ -1229,7 +1210,7 @@ function DeudasTab({ deudas, setDeudas, tdcs, setTdcs, accounts, setAccounts, ra
           {tdcs.map(t => {
             const pctUso = t.limite > 0 ? Math.min((t.saldo / t.limite) * 100, 100) : 0;
             const disponible = t.limite - t.saldo;
-            const colorUso = pctUso > 80 ? "#E53E3E" : pctUso > 50 ? "#C9A84C" : "#3DB87A";
+            const colorUso = pctUso > 80 ? "#E53E3E" : pctUso > 50 ? "#2D7FF9" : "#3DB87A";
             const diasCorte = t.fecha_corte ? (() => { const hoy = new Date(); const corte = new Date(new Date().getFullYear(), new Date().getMonth(), parseInt(t.fecha_corte)); if (corte < hoy) corte.setMonth(corte.getMonth() + 1); return Math.ceil((corte - hoy) / (1000*60*60*24)); })() : null;
             return (
               <div key={t.id} style={{ background: "#101010", border: "1px solid #1e1e1e", borderRadius: 16, padding: 18 }}>
@@ -1252,7 +1233,7 @@ function DeudasTab({ deudas, setDeudas, tdcs, setTdcs, accounts, setAccounts, ra
                   {[
                     { l: "Saldo usado", v: fmt(t.saldo), c: "#E53E3E" },
                     { l: "Disponible", v: fmt(disponible), c: "#3DB87A" },
-                    { l: "Corte día", v: t.fecha_corte ? `Día ${t.fecha_corte}${diasCorte !== null ? ` (${diasCorte}d)` : ""}` : "—", c: "#C9A84C" },
+                    { l: "Corte día", v: t.fecha_corte ? `Día ${t.fecha_corte}${diasCorte !== null ? ` (${diasCorte}d)` : ""}` : "—", c: "#2D7FF9" },
                     { l: "Límite de pago", v: t.fecha_pago ? `Día ${t.fecha_pago}` : "—", c: "#F0EDE6" },
                   ].map(r => (
                     <div key={r.l} style={{ background: "#141414", borderRadius: 10, padding: "10px 12px" }}>
@@ -1276,8 +1257,8 @@ function DeudasTab({ deudas, setDeudas, tdcs, setTdcs, accounts, setAccounts, ra
 
       {/* Add TDC modal */}
       {showAddTdc && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", backdropFilter: "blur(10px)", zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end", maxWidth: 430, left: "50%", transform: "translateX(-50%)" }} onClick={() => setShowAddTdc(false)}>
-          <div style={{ background: "#111", borderRadius: "24px 24px 0 0", padding: "28px 20px 48px", border: "1px solid #1e1e1e", maxHeight: "85vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", backdropFilter: "blur(10px)", zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end", maxWidth: 430, left: "50%", transform: "translateX(-50%)", width: "100%" }} onClick={() => setShowAddTdc(false)}>
+          <div style={{ background: "#111", borderRadius: "24px 24px 0 0", padding: "28px 20px 48px", border: "1px solid #1e1e1e", maxHeight: "85vh", overflowY: "auto", width: "100%" }} onClick={e => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
               <h3 style={{ fontSize: 20, fontWeight: 700 }}>Nueva tarjeta</h3>
               <button onClick={() => setShowAddTdc(false)} style={{ background: "#1a1a1a", border: "1px solid #1e1e1e", borderRadius: "50%", width: 32, height: 32, color: "#5A5550", fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
@@ -1298,15 +1279,15 @@ function DeudasTab({ deudas, setDeudas, tdcs, setTdcs, accounts, setAccounts, ra
                 <input type="number" inputMode="decimal" placeholder={f.ph} value={newT[f.k]} onChange={e => setNewT(p => ({ ...p, [f.k]: e.target.value }))} style={{ background: "#141414", border: "1px solid #1e1e1e", borderRadius: 12, padding: "13px 14px", color: "#F0EDE6", fontFamily: "'Space Mono',monospace", fontSize: 18, width: "100%", outline: "none" }} />
               </div>
             ))}
-            <button onClick={addTdc} style={{ background: (!newT.nombre || !newT.limite) ? "#1a1a1a" : "#C9A84C", color: (!newT.nombre || !newT.limite) ? "#5A5550" : "#000", border: "none", borderRadius: 14, padding: "16px", fontFamily: "'Sora',sans-serif", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%", marginTop: 6 }}>Agregar tarjeta</button>
+            <button onClick={addTdc} style={{ background: (!newT.nombre || !newT.limite) ? "#1a1a1a" : "#2D7FF9", color: (!newT.nombre || !newT.limite) ? "#5A5550" : "#000", border: "none", borderRadius: 14, padding: "16px", fontFamily: "'Sora',sans-serif", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%", marginTop: 6 }}>Agregar tarjeta</button>
           </div>
         </div>
       )}
 
       {/* Edit TDC modal */}
       {editTdc && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", backdropFilter: "blur(10px)", zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end", maxWidth: 430, left: "50%", transform: "translateX(-50%)" }} onClick={() => setEditTdc(null)}>
-          <div style={{ background: "#111", borderRadius: "24px 24px 0 0", padding: "28px 20px 48px", border: "1px solid #1e1e1e", maxHeight: "85vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", backdropFilter: "blur(10px)", zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end", maxWidth: 430, left: "50%", transform: "translateX(-50%)", width: "100%" }} onClick={() => setEditTdc(null)}>
+          <div style={{ background: "#111", borderRadius: "24px 24px 0 0", padding: "28px 20px 48px", border: "1px solid #1e1e1e", maxHeight: "85vh", overflowY: "auto", width: "100%" }} onClick={e => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
               <h3 style={{ fontSize: 20, fontWeight: 700 }}>Editar tarjeta</h3>
               <button onClick={() => setEditTdc(null)} style={{ background: "#1a1a1a", border: "1px solid #1e1e1e", borderRadius: "50%", width: 32, height: 32, color: "#5A5550", fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
@@ -1327,28 +1308,13 @@ function DeudasTab({ deudas, setDeudas, tdcs, setTdcs, accounts, setAccounts, ra
                 <input type="number" inputMode="decimal" value={editTdc[f.k] || ""} onChange={e => setEditTdc(p => ({ ...p, [f.k]: e.target.value }))} style={{ background: "#141414", border: "1px solid #1e1e1e", borderRadius: 12, padding: "13px 14px", color: "#F0EDE6", fontFamily: "'Space Mono',monospace", fontSize: 18, width: "100%", outline: "none" }} />
               </div>
             ))}
-            <button onClick={saveTdc} style={{ background: "#C9A84C", color: "#000", border: "none", borderRadius: 14, padding: "16px", fontFamily: "'Sora',sans-serif", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%" }}>Guardar cambios</button>
+            <button onClick={saveTdc} style={{ background: "#2D7FF9", color: "#000", border: "none", borderRadius: 14, padding: "16px", fontFamily: "'Sora',sans-serif", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%" }}>Guardar cambios</button>
           </div>
         </div>
       )}
 
       {/* Edit Account modal */}
-      {editAccount && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", backdropFilter: "blur(10px)", zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end", maxWidth: 430, left: "50%", transform: "translateX(-50%)" }} onClick={() => setEditAccount(null)}>
-          <div style={{ background: "#111", borderRadius: "24px 24px 0 0", padding: "28px 20px 48px", border: "1px solid #1e1e1e" }} onClick={e => e.stopPropagation()}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <h3 style={{ fontSize: 20, fontWeight: 700 }}>{editAccount.emoji} {editAccount.nombre}</h3>
-              <button onClick={() => setEditAccount(null)} style={{ background: "#1a1a1a", border: "1px solid #1e1e1e", borderRadius: "50%", width: 32, height: 32, color: "#5A5550", fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
-            </div>
-            <div style={{ marginBottom: 20 }}>
-              <label style={{ fontSize: 11, color: "#5A5550", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: ".06em" }}>Saldo actual</label>
-              <input type="number" inputMode="decimal" value={editAccount.saldo} onChange={e => setEditAccount(p => ({ ...p, saldo: e.target.value }))} style={{ background: "#141414", border: "1px solid #1e1e1e", borderRadius: 12, padding: "13px 14px", color: "#F0EDE6", fontFamily: "'Space Mono',monospace", fontSize: 22, width: "100%", outline: "none", textAlign: "center" }} />
-              <p style={{ fontSize: 12, color: "#5A5550", marginTop: 8, textAlign: "center" }}>Ajusta manualmente si no coincide con tu banco.</p>
-            </div>
-            <button onClick={saveAccountBalance} style={{ background: "#C9A84C", color: "#000", border: "none", borderRadius: 14, padding: "16px", fontFamily: "'Sora',sans-serif", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%" }}>Guardar saldo</button>
-          </div>
-        </div>
-      )}
+
     </div>
   );
 }
@@ -1500,6 +1466,12 @@ export default function App() {
   const [deudas, setDeudas] = useState(() => loadFromStorage("fp_deudas", INIT_DEUDAS));
   const [tdcs, setTdcs] = useState(() => loadFromStorage("fp_tdcs", INIT_TDCS));
   const [showTx, setShowTx] = useState(false);
+  const [editAccount, setEditAccount] = useState(null);
+
+  function saveAccountBalance() {
+    setAccounts(prev => prev.map(a => a.id === editAccount.id ? { ...a, saldo: parseFloat(editAccount.saldo) || 0 } : a));
+    setEditAccount(null);
+  }
 
   // Auto-save whenever data changes
   useEffect(() => { saveToStorage("fp_txs", txs); }, [txs]);
@@ -1678,6 +1650,26 @@ export default function App() {
               );
             })()}
 
+            {/* Mis cuentas */}
+            <div style={{ padding: "0 20px 16px" }}>
+              <p className="sec">mis cuentas</p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {accounts.filter(a => a.id !== "tdc" || tdcs.length === 0).map(a => (
+                  <div key={a.id} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14, padding: "14px 16px", display: "flex", alignItems: "center", gap: 12 }}>
+                    <span style={{ fontSize: 22 }}>{a.emoji}</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600 }}>{a.nombre}</div>
+                      <div style={{ fontSize: 11, color: C.textDim }}>{a.tipo}</div>
+                    </div>
+                    <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 16, fontWeight: 700, color: (a.saldo || 0) >= 0 ? C.text : C.red }}>
+                      {fmt(a.saldo || 0)}
+                    </div>
+                    <button onClick={() => setEditAccount({ ...a, saldo: String(a.saldo || 0) })} style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 8, padding: "4px 8px", color: C.textDim, fontSize: 11, cursor: "pointer" }}>✏️</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             {/* Recientes */}
             <div style={{ padding: "0 20px" }}>
               <p className="sec">recientes</p>
@@ -1705,8 +1697,7 @@ export default function App() {
 
         {/* PLAN */}
         {tab === "plan" && <PlanTab presupuesto={presupuesto} setPresupuesto={setPresupuesto} txs={txs} registrarMovimiento={registrarMovimiento} deudas={deudas} cfg={cfg} rate={rate} />}
-        {tab === "deudas" && <DeudasTab deudas={deudas} setDeudas={setDeudas} tdcs={tdcs} setTdcs={setTdcs} accounts={accounts} setAccounts={setAccounts} rate={rate} cfg={cfg} />}
-        {tab === "babylon" && <BabylonChat txs={txs} deudas={deudas} tdcs={tdcs} presupuesto={presupuesto} cfg={cfg} rate={rate} />}
+        {tab === "deudas" && <DeudasTab deudas={deudas} setDeudas={setDeudas} tdcs={tdcs} setTdcs={setTdcs} rate={rate} cfg={cfg} />}
 
         {/* HISTORIAL */}
         {tab === "historial" && (
@@ -1824,17 +1815,30 @@ export default function App() {
         )}
 
         {/* FAB */}
-        <button
-          className="fab"
-          onClick={() => setShowTx(true)}
-          style={tab === "babylon" ? { bottom: "auto", top: 56, right: "calc(50% - 215px + 18px)" } : {}}
-        >+</button>
+        <button className="fab" onClick={() => setShowTx(true)}>+</button>
 
         {showTx && <TxForm cats={cats} accounts={accounts} cfg={cfg} rate={rate} onSave={registrarMovimiento} onClose={() => setShowTx(false)} />}
 
+        {editAccount && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", backdropFilter: "blur(10px)", zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end", maxWidth: 430, left: "50%", transform: "translateX(-50%)", width: "100%" }} onClick={() => setEditAccount(null)}>
+            <div style={{ background: "#111", borderRadius: "24px 24px 0 0", padding: "28px 20px 48px", border: `1px solid ${C.border}`, width: "100%" }} onClick={e => e.stopPropagation()}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                <h3 style={{ fontSize: 20, fontWeight: 700 }}>{editAccount.emoji} {editAccount.nombre}</h3>
+                <button onClick={() => setEditAccount(null)} style={{ background: "#1a1a1a", border: `1px solid ${C.border}`, borderRadius: "50%", width: 32, height: 32, color: C.textDim, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+              </div>
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ fontSize: 11, color: C.textDim, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: ".06em" }}>Saldo actual</label>
+                <input type="number" inputMode="decimal" value={editAccount.saldo} onChange={e => setEditAccount(p => ({ ...p, saldo: e.target.value }))} style={{ background: "#141414", border: `1px solid ${C.border}`, borderRadius: 12, padding: "13px 14px", color: C.text, fontFamily: "'Space Mono',monospace", fontSize: 22, width: "100%", outline: "none", textAlign: "center" }} />
+                <p style={{ fontSize: 12, color: C.textDim, marginTop: 8, textAlign: "center" }}>Ajusta manualmente si no coincide con tu banco.</p>
+              </div>
+              <button onClick={saveAccountBalance} style={{ background: C.gold, color: "#000", border: "none", borderRadius: 14, padding: "16px", fontFamily: "'Sora',sans-serif", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%" }}>Guardar saldo</button>
+            </div>
+          </div>
+        )}
+
         {/* TABBAR */}
         <nav className="tabbar">
-          {[["home","⬡","Inicio"],["deudas","⛓","Deudas"],["plan","▤","Plan"],["babylon","🏛","Babylon"],["config","⚙","Config"]].map(([id,icon,label]) => (
+          {[["home","⬡","Inicio"],["deudas","⛓","Deudas"],["plan","▤","Plan"],["historial","≡","Historial"],["config","⚙","Config"]].map(([id,icon,label]) => (
             <button key={id} className={`ti ${tab === id ? "on" : ""}`} onClick={() => setTab(id)}>
               <span className="ticon">{icon}</span>
               <span className="tlbl">{label}</span>
