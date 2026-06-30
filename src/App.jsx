@@ -115,6 +115,13 @@ const INIT_CFG = {
 };
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
+function getPeriodoActual() {
+  const now = new Date();
+  const dia = now.getDate();
+  const quincena = dia <= 15 ? 1 : 2;
+  const meses = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+  return { quincena, mes: meses[now.getMonth()], anio: now.getFullYear(), mesNum: now.getMonth() };
+}
 function toTime(mxn, rate, hd = 8) {
   if (!rate || rate <= 0) return "—";
   const h = mxn / rate;
@@ -648,11 +655,11 @@ function AnalisisTab({ txs, cats, cfg, rate }) {
 }
 
 // ── PRESUPUESTO TAB ───────────────────────────────────────────────────────────
-function PlanTab({ presupuesto, setPresupuesto, txs, registrarMovimiento, cfg, rate }) {
-  const [quincena, setQuincena] = useState(1);
+function PlanTab({ presupuesto, setPresupuesto, txs, registrarMovimiento, deudas, cfg, rate }) {
+  const [quincena, setQuincena] = useState(() => getPeriodoActual().quincena);
   const [showAdd, setShowAdd] = useState(false);
   const [editItem, setEditItem] = useState(null);
-  const [newItem, setNewItem] = useState({ nombre: "", emoji: "💸", monto: "", frecuencia: "Quincena" });
+  const [newItem, setNewItem] = useState({ nombre: "", emoji: "💸", monto: "", frecuencia: "Quincena", esDeuda: false, deudaId: "" });
 
   const qKey = `q${quincena}`;
   const items = presupuesto[qKey] || [];
@@ -706,6 +713,7 @@ function PlanTab({ presupuesto, setPresupuesto, txs, registrarMovimiento, cfg, r
         catId: item.catId,
         subId: item.subId || "",
         cuentaId: item.cuentaId || "nu_nom",
+        deudaId: item.deudaId || undefined,
         origen: "presupuesto",
       });
     }
@@ -713,8 +721,14 @@ function PlanTab({ presupuesto, setPresupuesto, txs, registrarMovimiento, cfg, r
   function del(id) { setPresupuesto(p => ({ ...p, [qKey]: p[qKey].filter(i => i.id !== id) })); }
   function add() {
     if (!newItem.nombre || !newItem.monto) return;
-    setPresupuesto(p => ({ ...p, [qKey]: [...p[qKey], { id: Date.now().toString(), nombre: newItem.nombre, emoji: newItem.emoji, monto: parseFloat(newItem.monto), frecuencia: newItem.frecuencia, pagado: false }] }));
-    setNewItem({ nombre: "", emoji: "💸", monto: "", frecuencia: "Quincena" });
+    const base = { id: Date.now().toString(), nombre: newItem.nombre, emoji: newItem.emoji, monto: parseFloat(newItem.monto), frecuencia: newItem.frecuencia, pagado: false, cuentaId: "nu_nom" };
+    if (newItem.esDeuda && newItem.deudaId) {
+      base.catId = "deudas";
+      base.subId = "deuda_pasiva";
+      base.deudaId = newItem.deudaId;
+    }
+    setPresupuesto(p => ({ ...p, [qKey]: [...p[qKey], base] }));
+    setNewItem({ nombre: "", emoji: "💸", monto: "", frecuencia: "Quincena", esDeuda: false, deudaId: "" });
     setShowAdd(false);
   }
   function saveEdit() {
@@ -880,6 +894,26 @@ function PlanTab({ presupuesto, setPresupuesto, txs, registrarMovimiento, cfg, r
                 ))}
               </div>
             </div>
+
+            {deudas && deudas.length > 0 && (
+              <div style={{ marginBottom: 20 }}>
+                <button onClick={() => setNewItem(p => ({ ...p, esDeuda: !p.esDeuda, deudaId: "" }))} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", background: newItem.esDeuda ? C.goldDim : "#141414", border: `1px solid ${newItem.esDeuda ? C.gold : C.border}`, borderRadius: 12, padding: "12px 14px", cursor: "pointer" }}>
+                  <span style={{ width: 22, height: 22, borderRadius: 6, border: `2px solid ${newItem.esDeuda ? C.gold : C.border}`, background: newItem.esDeuda ? C.gold : "transparent", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, color: "#000" }}>{newItem.esDeuda ? "✓" : ""}</span>
+                  <span style={{ fontSize: 13, color: newItem.esDeuda ? C.goldLight : C.textDim, fontFamily: "'Sora',sans-serif" }}>Este pago abona a una deuda</span>
+                </button>
+                {newItem.esDeuda && (
+                  <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                    {deudas.map(d => (
+                      <button key={d.id} onClick={() => setNewItem(p => ({ ...p, deudaId: d.id }))} style={{ display: "flex", alignItems: "center", gap: 10, background: newItem.deudaId === d.id ? C.goldDim : "#141414", border: `1px solid ${newItem.deudaId === d.id ? C.gold : C.border}`, borderRadius: 10, padding: "12px 14px", cursor: "pointer" }}>
+                        <span style={{ fontSize: 18 }}>{d.emoji}</span>
+                        <span style={{ fontSize: 13, color: newItem.deudaId === d.id ? C.goldLight : C.text }}>{d.nombre}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             <button onClick={add} style={{ background: (!newItem.nombre || !newItem.monto) ? "#1a1a1a" : C.gold, color: (!newItem.nombre || !newItem.monto) ? C.textDim : "#000", border: "none", borderRadius: 14, padding: "16px", fontFamily: "'Sora',sans-serif", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%" }}>Agregar compromiso</button>
           </div>
         </div>
@@ -1097,6 +1131,14 @@ function DeudasTab({ deudas, setDeudas, tdcs, setTdcs, accounts, setAccounts, ra
                     </div>
                   ))}
                 </div>
+
+                {d.pago_mensual > 0 && d.pago_mensual < intMes && (
+                  <div style={{ background: "#E53E3E15", border: "1px solid #E53E3E55", borderRadius: 10, padding: "12px 14px", marginBottom: 14 }}>
+                    <p style={{ fontSize: 12, color: "#E53E3E", lineHeight: 1.6, fontWeight: 500 }}>
+                      ⚠️ Tu pago de ${d.pago_mensual.toLocaleString("es-MX")} NO cubre el interés de ${Math.round(intMes).toLocaleString("es-MX")}. Cada mes tu deuda SUBE ${Math.round(intMes - d.pago_mensual).toLocaleString("es-MX")}. Estás cayendo más hondo aunque pagues.
+                    </p>
+                  </div>
+                )}
 
                 {d.saldo_inicial > 0 && (
                   <>
@@ -1493,6 +1535,16 @@ export default function App() {
       // Pago a la tarjeta: baja el saldo de deuda de la TDC
       setTdcs(prev => prev.map((t, i) => i === 0 ? { ...t, saldo: Math.max(0, (t.saldo || 0) - tx.monto) } : t));
     }
+    // Pago a una deuda específica: abona (descuenta interés del mes primero)
+    if (tx.tipo === "gasto" && tx.deudaId) {
+      setDeudas(prev => prev.map(d => {
+        if (d.id !== tx.deudaId) return d;
+        const interesMes = d.saldo_actual * (d.tasa_mensual / 100);
+        const abonoCapital = tx.monto - interesMes; // puede ser negativo
+        const nuevoSaldo = Math.max(0, d.saldo_actual - abonoCapital);
+        return { ...d, saldo_actual: nuevoSaldo };
+      }));
+    }
   }
 
   const horasReales = (cfg.horas_dia + (cfg.horas_extra || 0));
@@ -1519,7 +1571,7 @@ export default function App() {
         {tab === "home" && (
           <div className="scr">
             <div className="hdr">
-              <p style={{ fontSize: 11, color: C.textDim, letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 8, fontWeight: 600 }}>Quincena 1 · Abril 2026</p>
+              <p style={{ fontSize: 11, color: C.textDim, letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 8, fontWeight: 600 }}>{(() => { const p = getPeriodoActual(); return `Quincena ${p.quincena} · ${p.mes} ${p.anio}`; })()}</p>
               <h1 style={{ fontFamily: "'Space Mono',monospace", fontSize: 44, fontWeight: 700, lineHeight: 1, color: balance >= 0 ? C.text : C.red }}>{balance < 0 ? "−" : ""}{fmt(balance)}</h1>
               <p style={{ fontSize: 13, color: C.textDim, marginTop: 8 }}>balance · <span style={{ color: C.gold, fontFamily: "'Space Mono',monospace" }}>{toTime(Math.abs(balance), rate, cfg.horas_dia)}</span></p>
             </div>
@@ -1652,7 +1704,7 @@ export default function App() {
         )}
 
         {/* PLAN */}
-        {tab === "plan" && <PlanTab presupuesto={presupuesto} setPresupuesto={setPresupuesto} txs={txs} registrarMovimiento={registrarMovimiento} cfg={cfg} rate={rate} />}
+        {tab === "plan" && <PlanTab presupuesto={presupuesto} setPresupuesto={setPresupuesto} txs={txs} registrarMovimiento={registrarMovimiento} deudas={deudas} cfg={cfg} rate={rate} />}
         {tab === "deudas" && <DeudasTab deudas={deudas} setDeudas={setDeudas} tdcs={tdcs} setTdcs={setTdcs} accounts={accounts} setAccounts={setAccounts} rate={rate} cfg={cfg} />}
         {tab === "babylon" && <BabylonChat txs={txs} deudas={deudas} tdcs={tdcs} presupuesto={presupuesto} cfg={cfg} rate={rate} />}
 
