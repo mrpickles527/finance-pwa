@@ -252,7 +252,7 @@ async function sendToMake(payload) {
 }
 
 // ── TRANSACTION FORM — single screen ─────────────────────────────────────────
-function TxForm({ cats, accounts, tdcs, cfg, rate, onSave, onClose }) {
+function TxForm({ cats, accounts, tdcs, presupuesto, onPagarCompromiso, cfg, rate, onSave, onClose }) {
   const today = new Date().toISOString().split("T")[0];
   const [tipo, setTipo] = useState("gasto");
   const [monto, setMonto] = useState("");
@@ -268,6 +268,11 @@ function TxForm({ cats, accounts, tdcs, cfg, rate, onSave, onClose }) {
   const [tdcDestId, setTdcDestId] = useState("");
   const [nombrePrestamo, setNombrePrestamo] = useState("");
   const [tasaPrestamo, setTasaPrestamo] = useState("");
+  const [porPagarMode, setPorPagarMode] = useState(false);
+  const [compromisoSel, setCompromisoSel] = useState(null);
+
+  const quincenaActual = getPeriodoActual().quincena;
+  const pendientesQuincena = (presupuesto[`q${quincenaActual}`] || []).filter(i => !i.pagado);
 
   const montoParsed = parseFloat(monto) || 0;
   const tipoColor = tipo === "ingreso" ? C.green : tipo === "transferencia" ? C.purple : tipo === "prestamo" ? C.red : tipo === "pago_tdc" ? C.blue : C.gold;
@@ -278,12 +283,21 @@ function TxForm({ cats, accounts, tdcs, cfg, rate, onSave, onClose }) {
 
   async function save() {
     // Validaciones por tipo
-    const needsCat = tipo === "gasto" || tipo === "ingreso";
+    const needsCat = (tipo === "gasto" || tipo === "ingreso") && !porPagarMode;
     if (!montoParsed) return;
     if (needsCat && !catId) return;
+    if (porPagarMode && !compromisoSel) return;
     if (tipo === "pago_tdc" && !tdcDestId) return;
     if (tipo === "prestamo" && !nombrePrestamo) return;
     setSaving(true);
+
+    // Si es pago de compromiso, marcarlo como pagado (crea su propio registro)
+    if (porPagarMode && compromisoSel) {
+      onPagarCompromiso(compromisoSel, quincenaActual, montoParsed, cuentaId);
+      setSaving(false);
+      onClose();
+      return;
+    }
 
     const tx = {
       id: `tx_${Date.now()}`,
@@ -379,7 +393,35 @@ function TxForm({ cats, accounts, tdcs, cfg, rate, onSave, onClose }) {
       {/* Scrollable fields */}
       <div style={{ flex: 1, overflowY: "auto", padding: "4px 20px 0" }}>
 
-        {(tipo === "gasto" || tipo === "ingreso") && (<>
+        {tipo === "gasto" && pendientesQuincena.length > 0 && (<>
+          {sectionTitle("¿Es un compromiso del plan?")}
+          <div style={{ marginBottom: 8 }}>
+            <button onClick={() => { setPorPagarMode(!porPagarMode); setCompromisoSel(null); }} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", background: porPagarMode ? "#0E1F3D" : "#141414", border: `1px solid ${porPagarMode ? C.blue : C.border}`, borderRadius: 14, padding: "14px 16px", cursor: "pointer", marginBottom: porPagarMode ? 10 : 0 }}>
+              <span style={{ fontSize: 20 }}>📋</span>
+              <div style={{ flex: 1, textAlign: "left" }}>
+                <div style={{ fontSize: 14, color: porPagarMode ? "#5B9DFF" : C.text, fontWeight: 500 }}>Por pagar (Plan)</div>
+                <div style={{ fontSize: 11, color: C.textDim }}>{pendientesQuincena.length} pendientes esta quincena</div>
+              </div>
+              <span style={{ color: C.textDim }}>{porPagarMode ? "▲" : "▼"}</span>
+            </button>
+            {porPagarMode && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {pendientesQuincena.map(item => (
+                  <button key={item.id} onClick={() => { setCompromisoSel(item.id); setMonto(String(item.monto)); }} style={{ display: "flex", alignItems: "center", gap: 12, background: compromisoSel === item.id ? "#0E1F3D" : "#141414", border: `1px solid ${compromisoSel === item.id ? C.blue : C.border}`, borderRadius: 12, padding: "12px 14px", cursor: "pointer" }}>
+                    <span style={{ fontSize: 18 }}>{item.emoji}</span>
+                    <div style={{ flex: 1, textAlign: "left" }}>
+                      <div style={{ fontSize: 14, color: compromisoSel === item.id ? "#5B9DFF" : C.text }}>{item.nombre}</div>
+                      <div style={{ fontSize: 11, color: C.textDim }}>{item.frecuencia}{item.diaPago ? ` · día ${item.diaPago}` : ""}</div>
+                    </div>
+                    <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 13, color: C.textDim }}>{fmt(item.monto)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </>)}
+
+        {(tipo === "gasto" || tipo === "ingreso") && !porPagarMode && (<>
         {sectionTitle("Categoría")}
         <button onClick={() => setShowCatPicker(true)} style={{ display: "flex", alignItems: "center", gap: 14, padding: "15px 16px", background: catId ? `${currentCat?.color}18` : "#141414", border: `1px solid ${catId ? (currentCat?.color + "55") : C.border}`, borderRadius: 14, width: "100%", textAlign: "left", cursor: "pointer", marginBottom: 8 }}>
           <span style={{ fontSize: 22, width: 30, textAlign: "center" }}>{currentCat?.emoji || "🏷️"}</span>
@@ -1642,6 +1684,25 @@ export default function App() {
     setTxs(p => p.map(t => t.id === txId ? { ...t, ...cambios } : t));
   }
 
+  // Marca un compromiso del plan como pagado desde el registro y crea el movimiento
+  function pagarCompromisoDesdeRegistro(presId, quincena, monto, cuentaId) {
+    const qKey = `q${quincena}`;
+    const item = (presupuesto[qKey] || []).find(i => i.id === presId);
+    if (!item) return;
+    setPresupuesto(p => ({ ...p, [qKey]: p[qKey].map(i => i.id === presId ? { ...i, pagado: true } : i) }));
+    const fecha = new Date().toISOString().split("T")[0];
+    registrarMovimiento({
+      id: `tx_pres_${presId}_${Date.now()}`,
+      fecha, tipo: "gasto", monto,
+      categoria: item.nombre, subcategoria: "",
+      cuenta: cuentaId, nota: `Compromiso: ${item.nombre}`,
+      quincena, mes: fecha.slice(0, 7),
+      catId: item.catId || "otros", subId: item.subId || "",
+      cuentaId, deudaId: item.deudaId || undefined,
+      origen: "presupuesto", presId,
+    });
+  }
+
   // Registra un movimiento y actualiza cuentas/tdcs/deudas en cascada
   function registrarMovimiento(tx) {
     setTxs(p => [tx, ...p]);
@@ -2074,7 +2135,7 @@ export default function App() {
         {/* FAB */}
         <button className="fab" onClick={() => setShowTx(true)}>+</button>
 
-        {showTx && <TxForm cats={cats} accounts={accounts} tdcs={tdcs} cfg={cfg} rate={rate} onSave={registrarMovimiento} onClose={() => setShowTx(false)} />}
+        {showTx && <TxForm cats={cats} accounts={accounts} tdcs={tdcs} presupuesto={presupuesto} onPagarCompromiso={pagarCompromisoDesdeRegistro} cfg={cfg} rate={rate} onSave={registrarMovimiento} onClose={() => setShowTx(false)} />}
 
         {editAccount && (
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", backdropFilter: "blur(10px)", zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end", maxWidth: 430, left: "50%", transform: "translateX(-50%)", width: "100%" }} onClick={() => setEditAccount(null)}>
