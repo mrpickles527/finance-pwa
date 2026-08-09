@@ -253,7 +253,7 @@ async function sendToMake(payload) {
 }
 
 // ── TRANSACTION FORM — single screen ─────────────────────────────────────────
-function TxForm({ cats, accounts, cfg, rate, onSave, onClose }) {
+function TxForm({ cats, accounts, tdcs, cfg, rate, onSave, onClose }) {
   const today = new Date().toISOString().split("T")[0];
   const [tipo, setTipo] = useState("gasto");
   const [monto, setMonto] = useState("");
@@ -266,16 +266,24 @@ function TxForm({ cats, accounts, cfg, rate, onSave, onClose }) {
   const [showCatPicker, setShowCatPicker] = useState(false);
   const [showSubPicker, setShowSubPicker] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [tdcDestId, setTdcDestId] = useState("");
+  const [nombrePrestamo, setNombrePrestamo] = useState("");
+  const [tasaPrestamo, setTasaPrestamo] = useState("");
 
   const montoParsed = parseFloat(monto) || 0;
-  const tipoColor = tipo === "ingreso" ? C.green : tipo === "transferencia" ? C.blue : C.gold;
+  const tipoColor = tipo === "ingreso" ? C.green : tipo === "transferencia" ? C.purple : tipo === "prestamo" ? C.red : tipo === "pago_tdc" ? C.blue : C.gold;
   const currentCat = cats.find(c => c.id === catId);
   const currentSub = currentCat?.subs.find(s => s.id === subId);
   const tiempoStr = montoParsed > 0 ? toTime(montoParsed, rate, cfg.horas_dia) : null;
   const cuenta = accounts.find(a => a.id === cuentaId);
 
   async function save() {
-    if (!montoParsed || (!catId && tipo !== "transferencia")) return;
+    // Validaciones por tipo
+    const needsCat = tipo === "gasto" || tipo === "ingreso";
+    if (!montoParsed) return;
+    if (needsCat && !catId) return;
+    if (tipo === "pago_tdc" && !tdcDestId) return;
+    if (tipo === "prestamo" && !nombrePrestamo) return;
     setSaving(true);
 
     const tx = {
@@ -283,7 +291,7 @@ function TxForm({ cats, accounts, cfg, rate, onSave, onClose }) {
       fecha,
       tipo,
       monto: montoParsed,
-      categoria: currentCat?.nombre || catId,
+      categoria: tipo === "prestamo" ? "Préstamo recibido" : tipo === "pago_tdc" ? "Pago TDC" : (currentCat?.nombre || catId),
       subcategoria: currentSub?.nombre || subId || "",
       cuenta: cuenta?.nombre || cuentaId,
       nota,
@@ -293,7 +301,16 @@ function TxForm({ cats, accounts, cfg, rate, onSave, onClose }) {
 
     await sendToMake(tx);
 
-    onSave({ ...tx, catId: catId || "otros", subId: subId || "", cuentaId, cuentaDestId: tipo === "transferencia" ? cuentaDestId : undefined });
+    onSave({
+      ...tx,
+      catId: needsCat ? (catId || "otros") : (tipo === "prestamo" ? "deudas" : tipo === "pago_tdc" ? "deudas" : "otros"),
+      subId: subId || "",
+      cuentaId,
+      cuentaDestId: tipo === "transferencia" ? cuentaDestId : undefined,
+      tdcDestId: tipo === "pago_tdc" ? tdcDestId : undefined,
+      nombrePrestamo: tipo === "prestamo" ? nombrePrestamo : undefined,
+      tasaPrestamo: tipo === "prestamo" ? (parseFloat(tasaPrestamo) || 0) : undefined,
+    });
     setSaving(false);
     onClose();
   }
@@ -320,12 +337,17 @@ function TxForm({ cats, accounts, cfg, rate, onSave, onClose }) {
       {/* Top bar */}
       <div style={{ padding: "52px 20px 0", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <button onClick={onClose} style={{ width: 38, height: 38, borderRadius: "50%", background: "#161616", border: `1px solid ${C.border}`, color: C.text, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
-        <div style={{ display: "flex", background: "#141414", borderRadius: 12, padding: 3, gap: 2 }}>
-          {[["gasto","Gasto",C.gold],["ingreso","Ingreso",C.green],["transferencia","↔",C.blue]].map(([v,l,col]) => (
-            <button key={v} onClick={() => setTipo(v)} style={{ padding: "8px 14px", border: "none", borderRadius: 9, fontFamily: "'Sora',sans-serif", fontSize: 13, fontWeight: 600, cursor: "pointer", background: tipo === v ? col : "transparent", color: tipo === v ? "#000" : C.textDim, transition: "all .2s" }}>{l}</button>
+        <span style={{ fontSize: 15, fontWeight: 700, color: C.text }}>Nuevo movimiento</span>
+        <button onClick={save} disabled={saving} style={{ background: tipoColor, border: "none", borderRadius: 12, padding: "10px 18px", color: "#000", fontFamily: "'Sora',sans-serif", fontWeight: 700, fontSize: 14, cursor: "pointer", opacity: (!montoParsed || saving) ? 0.35 : 1 }}>{saving ? "..." : "Guardar"}</button>
+      </div>
+
+      {/* Tipo selector - scrollable row */}
+      <div style={{ padding: "16px 20px 0", flexShrink: 0 }}>
+        <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
+          {[["gasto","💸 Gasto",C.gold],["ingreso","⬆️ Ingreso",C.green],["prestamo","🏦 Préstamo",C.red],["pago_tdc","💳 Pago TDC",C.blue],["transferencia","↔ Transfer",C.purple]].map(([v,l,col]) => (
+            <button key={v} onClick={() => { setTipo(v); setCatId(""); setSubId(""); }} style={{ padding: "10px 16px", border: `1px solid ${tipo === v ? col : C.border}`, borderRadius: 100, fontFamily: "'Sora',sans-serif", fontSize: 13, fontWeight: 600, cursor: "pointer", background: tipo === v ? col : "#141414", color: tipo === v ? "#000" : C.textDim, transition: "all .2s", whiteSpace: "nowrap", flexShrink: 0 }}>{l}</button>
           ))}
         </div>
-        <button onClick={save} disabled={saving} style={{ background: tipoColor, border: "none", borderRadius: 12, padding: "10px 18px", color: "#000", fontFamily: "'Sora',sans-serif", fontWeight: 700, fontSize: 14, cursor: "pointer", opacity: (!montoParsed || (!catId && tipo !== "transferencia") || saving) ? 0.35 : 1 }}>{saving ? "..." : "Guardar"}</button>
       </div>
 
       {/* Amount hero */}
@@ -358,6 +380,7 @@ function TxForm({ cats, accounts, cfg, rate, onSave, onClose }) {
       {/* Scrollable fields */}
       <div style={{ flex: 1, overflowY: "auto", padding: "4px 20px 0" }}>
 
+        {(tipo === "gasto" || tipo === "ingreso") && (<>
         {sectionTitle("Categoría")}
         <button onClick={() => setShowCatPicker(true)} style={{ display: "flex", alignItems: "center", gap: 14, padding: "15px 16px", background: catId ? `${currentCat?.color}18` : "#141414", border: `1px solid ${catId ? (currentCat?.color + "55") : C.border}`, borderRadius: 14, width: "100%", textAlign: "left", cursor: "pointer", marginBottom: 8 }}>
           <span style={{ fontSize: 22, width: 30, textAlign: "center" }}>{currentCat?.emoji || "🏷️"}</span>
@@ -373,8 +396,40 @@ function TxForm({ cats, accounts, cfg, rate, onSave, onClose }) {
           )}
           {!catId && <span style={{ color: C.textDim, fontSize: 16 }}>›</span>}
         </button>
+        </>)}
 
-        {sectionTitle("Cuenta")}
+        {tipo === "prestamo" && (<>
+          {sectionTitle("Datos del préstamo")}
+          <div style={{ background: `${C.red}0a`, border: `1px solid ${C.red}33`, borderRadius: 14, padding: 14, marginBottom: 8 }}>
+            <p style={{ fontSize: 12, color: C.textDim, lineHeight: 1.5, marginBottom: 12 }}>Este dinero entra a tu cuenta pero NO es tuyo. Se creará una deuda automáticamente.</p>
+            <input className="inp" placeholder="Nombre (ej: Kueski, préstamo Juan)" value={nombrePrestamo} onChange={e => setNombrePrestamo(e.target.value)} style={{ marginBottom: 10 }} />
+            <label style={{ fontSize: 11, color: C.textDim, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: ".06em" }}>Tasa de interés mensual (%)</label>
+            <input type="number" inputMode="decimal" className="inp mono" placeholder="ej: 8" value={tasaPrestamo} onChange={e => setTasaPrestamo(e.target.value)} style={{ fontFamily: "'Space Mono',monospace" }} />
+          </div>
+        </>)}
+
+        {tipo === "pago_tdc" && (<>
+          {sectionTitle("¿Qué tarjeta pagas?")}
+          {tdcs.length === 0 ? (
+            <div style={{ background: "#141414", border: `1px solid ${C.border}`, borderRadius: 14, padding: 16, marginBottom: 8, textAlign: "center" }}>
+              <p style={{ fontSize: 13, color: C.textDim }}>No tienes tarjetas registradas. Agrégalas en el tab Deudas.</p>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 8 }}>
+              {tdcs.map(t => (
+                <button key={t.id} onClick={() => setTdcDestId(t.id)} style={{ display: "flex", alignItems: "center", gap: 12, background: tdcDestId === t.id ? "#0E1F3D" : "#141414", border: `1px solid ${tdcDestId === t.id ? C.blue : C.border}`, borderRadius: 12, padding: "13px 14px", cursor: "pointer" }}>
+                  <span style={{ fontSize: 20 }}>{t.emoji}</span>
+                  <div style={{ flex: 1, textAlign: "left" }}>
+                    <div style={{ fontSize: 14, color: tdcDestId === t.id ? "#5B9DFF" : C.text }}>{t.nombre}</div>
+                    <div style={{ fontSize: 11, color: C.textDim }}>Debes {fmt(t.saldo || 0)}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </>)}
+
+        {sectionTitle(tipo === "prestamo" ? "¿A qué cuenta entró?" : tipo === "pago_tdc" ? "¿De qué cuenta pagas?" : "Cuenta")}
         {tipo === "transferencia" ? (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 8 }}>
             {[["Desde", cuentaId, setCuentaId], ["Hacia", cuentaDestId, setCuentaDestId]].map(([label, val, setter]) => (
@@ -1579,7 +1634,7 @@ export default function App() {
     setTxs(p => p.map(t => t.id === txId ? { ...t, ...cambios } : t));
   }
 
-  // Registra un movimiento y actualiza cuentas/tdcs en cascada
+  // Registra un movimiento y actualiza cuentas/tdcs/deudas en cascada
   function registrarMovimiento(tx) {
     setTxs(p => [tx, ...p]);
 
@@ -1588,6 +1643,8 @@ export default function App() {
       let saldo = a.saldo || 0;
       if (tx.tipo === "gasto" && a.id === tx.cuentaId) saldo -= tx.monto;
       if (tx.tipo === "ingreso" && a.id === tx.cuentaId) saldo += tx.monto;
+      if (tx.tipo === "prestamo" && a.id === tx.cuentaId) saldo += tx.monto; // entra dinero
+      if (tx.tipo === "pago_tdc" && a.id === tx.cuentaId) saldo -= tx.monto; // sale dinero
       if (tx.tipo === "transferencia") {
         if (a.id === tx.cuentaId) saldo -= tx.monto;
         if (a.id === tx.cuentaDestId) saldo += tx.monto;
@@ -1595,21 +1652,38 @@ export default function App() {
       return { ...a, saldo };
     }));
 
-    // Conectar movimientos con TDC
-    if (tx.tipo === "gasto" && tx.cuentaId === "tdc" && tdcs.length > 0) {
-      // Cargo a la tarjeta: sube el saldo de deuda de la TDC
-      setTdcs(prev => prev.map((t, i) => i === 0 ? { ...t, saldo: (t.saldo || 0) + tx.monto } : t));
+    // PRÉSTAMO: crear deuda nueva automáticamente
+    if (tx.tipo === "prestamo") {
+      const nuevaDeuda = {
+        id: `d_${Date.now()}`,
+        nombre: tx.nombrePrestamo || "Préstamo",
+        emoji: "🏦",
+        saldo_inicial: tx.monto,
+        saldo_actual: tx.monto,
+        tasa_mensual: tx.tasaPrestamo || 0,
+        pago_mensual: 0,
+        plazo_meses: 0,
+        fecha_inicio: tx.fecha,
+      };
+      setDeudas(prev => [...prev, nuevaDeuda]);
     }
-    if (tx.tipo === "gasto" && tx.catId === "deudas" && tx.subId === "pago_tdc" && tdcs.length > 0) {
-      // Pago a la tarjeta: baja el saldo de deuda de la TDC
-      setTdcs(prev => prev.map((t, i) => i === 0 ? { ...t, saldo: Math.max(0, (t.saldo || 0) - tx.monto) } : t));
+
+    // PAGO TDC: baja el saldo de la tarjeta elegida
+    if (tx.tipo === "pago_tdc" && tx.tdcDestId) {
+      setTdcs(prev => prev.map(t => t.id === tx.tdcDestId ? { ...t, saldo: Math.max(0, (t.saldo || 0) - tx.monto) } : t));
     }
+
+    // GASTO con TDC como cuenta: sube el saldo de deuda de esa TDC
+    if (tx.tipo === "gasto" && tx.cuentaId && tx.cuentaId.startsWith("tdc") && tdcs.length > 0) {
+      setTdcs(prev => prev.map(t => t.id === tx.cuentaId ? { ...t, saldo: (t.saldo || 0) + tx.monto } : t));
+    }
+
     // Pago a una deuda específica: abona (descuenta interés del mes primero)
     if (tx.tipo === "gasto" && tx.deudaId) {
       setDeudas(prev => prev.map(d => {
         if (d.id !== tx.deudaId) return d;
         const interesMes = d.saldo_actual * (d.tasa_mensual / 100);
-        const abonoCapital = tx.monto - interesMes; // puede ser negativo
+        const abonoCapital = tx.monto - interesMes;
         const nuevoSaldo = Math.max(0, d.saldo_actual - abonoCapital);
         return { ...d, saldo_actual: nuevoSaldo };
       }));
@@ -1990,7 +2064,7 @@ export default function App() {
         {/* FAB */}
         <button className="fab" onClick={() => setShowTx(true)}>+</button>
 
-        {showTx && <TxForm cats={cats} accounts={accounts} cfg={cfg} rate={rate} onSave={registrarMovimiento} onClose={() => setShowTx(false)} />}
+        {showTx && <TxForm cats={cats} accounts={accounts} tdcs={tdcs} cfg={cfg} rate={rate} onSave={registrarMovimiento} onClose={() => setShowTx(false)} />}
 
         {editAccount && (
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", backdropFilter: "blur(10px)", zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end", maxWidth: 430, left: "50%", transform: "translateX(-50%)", width: "100%" }} onClick={() => setEditAccount(null)}>
