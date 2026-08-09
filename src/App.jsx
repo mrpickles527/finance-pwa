@@ -16,7 +16,6 @@ const C = {
 // ── ACCOUNTS ─────────────────────────────────────────────────────────────────
 const INIT_ACCOUNTS = [
   { id: "nu_nom", nombre: "NU Nómina", emoji: "🏦", tipo: "Débito", color: C.purple, saldo: 0 },
-  { id: "tdc", nombre: "TDC", emoji: "💳", tipo: "Crédito", color: C.gold, saldo: 0 },
   { id: "efectivo", nombre: "Efectivo", emoji: "💵", tipo: "Cash", color: "#27AE60", saldo: 0 },
 ];
 
@@ -1585,6 +1584,15 @@ export default function App() {
   const [showTx, setShowTx] = useState(false);
   const [editAccount, setEditAccount] = useState(null);
   const [editTx, setEditTx] = useState(null);
+  const [showAddAccount, setShowAddAccount] = useState(false);
+  const [newAccount, setNewAccount] = useState({ nombre: "", emoji: "🏦", tipo: "Débito" });
+
+  function agregarCuenta() {
+    if (!newAccount.nombre) return;
+    setAccounts(prev => [...prev, { id: `acc_${Date.now()}`, nombre: newAccount.nombre, emoji: newAccount.emoji, tipo: newAccount.tipo, color: C.purple, saldo: 0 }]);
+    setNewAccount({ nombre: "", emoji: "🏦", tipo: "Débito" });
+    setShowAddAccount(false);
+  }
 
   function saveAccountBalance() {
     setAccounts(prev => prev.map(a => a.id === editAccount.id ? { ...a, saldo: parseFloat(editAccount.saldo) || 0 } : a));
@@ -1909,10 +1917,12 @@ export default function App() {
                     <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 16, fontWeight: 700, color: (a.saldo || 0) >= 0 ? C.text : C.red }}>
                       {fmt(a.saldo || 0)}
                     </div>
-                    <button onClick={() => setEditAccount({ ...a, saldo: String(a.saldo || 0) })} style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 8, padding: "4px 8px", color: C.textDim, fontSize: 11, cursor: "pointer" }}>✏️</button>
+                    <button onClick={() => setEditAccount({ ...a, saldo: String(a.saldo || 0) })} style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 8, padding: "4px 8px", color: C.textDim, fontSize: 11, cursor: "pointer", marginRight: 4 }}>✏️</button>
+                    <button onClick={() => { if (confirm(`¿Eliminar la cuenta "${a.nombre}"? Los movimientos ligados a ella no se borran.`)) setAccounts(prev => prev.filter(x => x.id !== a.id)); }} style={{ background: "none", border: `1px solid ${C.red}33`, borderRadius: 8, padding: "4px 8px", color: C.red, fontSize: 13, cursor: "pointer" }}>×</button>
                   </div>
                 ))}
               </div>
+              <button onClick={() => setShowAddAccount(true)} style={{ marginTop: 10, background: "none", border: `1px dashed ${C.border}`, borderRadius: 12, padding: "12px", width: "100%", color: C.textDim, fontSize: 13, cursor: "pointer", fontFamily: "'Sora',sans-serif" }}>+ Agregar cuenta</button>
             </div>
 
             {/* Recientes */}
@@ -2082,6 +2092,30 @@ export default function App() {
                 <p style={{ fontSize: 12, color: C.textDim, marginTop: 8, textAlign: "center" }}>Toca ± para saldo negativo (sobregiro o deuda en la cuenta).</p>
               </div>
               <button onClick={saveAccountBalance} style={{ background: C.gold, color: "#000", border: "none", borderRadius: 14, padding: "16px", fontFamily: "'Sora',sans-serif", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%" }}>Guardar saldo</button>
+            </div>
+          </div>
+        )}
+
+        {showAddAccount && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", backdropFilter: "blur(10px)", zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end", maxWidth: 430, left: "50%", transform: "translateX(-50%)", width: "100%" }} onClick={() => setShowAddAccount(false)}>
+            <div style={{ background: "#111", borderRadius: "24px 24px 0 0", padding: "28px 20px 48px", border: `1px solid ${C.border}`, width: "100%" }} onClick={e => e.stopPropagation()}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                <h3 style={{ fontSize: 20, fontWeight: 700 }}>Nueva cuenta</h3>
+                <button onClick={() => setShowAddAccount(false)} style={{ background: "#1a1a1a", border: `1px solid ${C.border}`, borderRadius: "50%", width: 32, height: 32, color: C.textDim, fontSize: 16, cursor: "pointer" }}>✕</button>
+              </div>
+              <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+                <input value={newAccount.emoji} onChange={e => setNewAccount(p => ({ ...p, emoji: e.target.value }))} style={{ background: "#141414", border: `1px solid ${C.border}`, borderRadius: 12, padding: "13px", color: C.text, fontSize: 24, width: 58, outline: "none", textAlign: "center" }} />
+                <input placeholder="Nombre (ej: BBVA Nómina)" value={newAccount.nombre} onChange={e => setNewAccount(p => ({ ...p, nombre: e.target.value }))} style={{ background: "#141414", border: `1px solid ${C.border}`, borderRadius: 12, padding: "13px 14px", color: C.text, fontFamily: "'Sora',sans-serif", fontSize: 15, flex: 1, outline: "none" }} />
+              </div>
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ fontSize: 11, color: C.textDim, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: ".06em" }}>Tipo</label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  {["Débito", "Cash", "Ahorro"].map(t => (
+                    <button key={t} onClick={() => setNewAccount(p => ({ ...p, tipo: t }))} style={{ flex: 1, padding: "10px 4px", border: `1px solid ${newAccount.tipo === t ? C.gold : C.border}`, borderRadius: 10, background: newAccount.tipo === t ? C.goldDim : "#141414", color: newAccount.tipo === t ? C.goldLight : C.textDim, fontSize: 12, cursor: "pointer", fontFamily: "'Sora',sans-serif", fontWeight: 600 }}>{t}</button>
+                  ))}
+                </div>
+              </div>
+              <button onClick={agregarCuenta} style={{ background: newAccount.nombre ? C.gold : "#1a1a1a", color: newAccount.nombre ? "#000" : C.textDim, border: "none", borderRadius: 14, padding: "16px", fontFamily: "'Sora',sans-serif", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%" }}>Agregar cuenta</button>
             </div>
           </div>
         )}
