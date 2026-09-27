@@ -253,6 +253,41 @@ async function sendToMake(payload) {
   }
 }
 
+// ── SUPABASE (base de datos en la nube) ──────────────────────────────────────
+const SB_URL = "https://dtegxktgfnwivjosmzec.supabase.co";
+const SB_KEY = "sb_publishable_HaAy9JX_LDXj0Rcmpup-Xg_yNWEv-sI";
+const SB_HEADERS = { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, "Content-Type": "application/json" };
+
+// Lee todo el estado guardado en la nube: { txs, cfg, accounts, ... } o null si falla
+async function sbGetAppState() {
+  try {
+    const res = await fetch(`${SB_URL}/rest/v1/app_state?select=key,value`, { headers: SB_HEADERS });
+    if (!res.ok) return null;
+    const rows = await res.json();
+    const out = {};
+    rows.forEach(r => { out[r.key] = r.value; });
+    return out;
+  } catch { return null; }
+}
+
+// Sube (o actualiza) una pieza del estado a la nube. Devuelve true si guardó.
+async function sbUpsert(key, value) {
+  try {
+    const res = await fetch(`${SB_URL}/rest/v1/app_state?on_conflict=key`, {
+      method: "POST",
+      headers: { ...SB_HEADERS, Prefer: "resolution=merge-duplicates" },
+      body: JSON.stringify({ key, value, updated_at: new Date().toISOString() }),
+    });
+    return res.ok;
+  } catch { return false; }
+}
+
+// ¿El estado remoto tiene datos reales? (para no pisar el teléfono con una base vacía)
+function sbHasData(s) {
+  if (!s) return false;
+  return (s.txs?.length > 0) || (s.deudas?.length > 0) || (s.tdcs?.length > 0) || (s.metas?.length > 0);
+}
+
 // ── TRANSACTION FORM — single screen ─────────────────────────────────────────
 function TxForm({ cats, accounts, tdcs, presupuesto, onPagarCompromiso, cfg, rate, onSave, onClose }) {
   const today = new Date().toISOString().split("T")[0];
@@ -1891,6 +1926,9 @@ export default function App() {
   const [editTx, setEditTx] = useState(null);
   const [showAddAccount, setShowAddAccount] = useState(false);
   const [newAccount, setNewAccount] = useState({ nombre: "", emoji: "🏦", tipo: "Débito" });
+  const [syncStatus, setSyncStatus] = useState("cargando"); // cargando | ok | offline
+  const hydrated = useRef(false);
+  const syncTimers = useRef({});
 
   function agregarCuenta() {
     if (!newAccount.nombre) return;
@@ -1914,6 +1952,66 @@ export default function App() {
   useEffect(() => { saveToStorage("fp_tdcs", tdcs); }, [tdcs]);
   useEffect(() => { saveToStorage("fp_metas", metas); }, [metas]);
   useEffect(() => { saveToStorage("fp_metas_pool", metasPool); }, [metasPool]);
+
+  // ── SINCRONIZACIÓN CON SUPABASE ──────────────────────────────────────────
+  // Sube un cambio a la nube con un pequeño retraso (para no saturar en cada tecla)
+  function queueSync(key, value) {
+    if (!hydrated.current) return;
+    clearTimeout(syncTimers.current[key]);
+    syncTimers.current[key] = setTimeout(async () => {
+      const ok = await sbUpsert(key, value);
+      setSyncStatus(ok ? "ok" : "offline");
+    }, 800);
+  }
+
+  // Carga inicial: si la nube tiene datos reales, manda la nube; si está vacía,
+  // sube lo del teléfono; si no conecta, seguimos con localStorage.
+  useEffect(() => {
+    let cancel = false;
+    (async () => {
+      const remote = await sbGetAppState();
+      if (cancel) return;
+      if (remote === null) {
+        // Sin conexión o tablas aún no creadas → localStorage sigue mandando
+        hydrated.current = true;
+        setSyncStatus("offline");
+        return;
+      }
+      if (sbHasData(remote)) {
+        // La nube tiene datos reales → la nube manda
+        if (remote.txs) setTxs(remote.txs);
+        if (remote.cfg) setCfg(remote.cfg);
+        if (remote.accounts) setAccounts(remote.accounts);
+        if (remote.cats) setCats(remote.cats);
+        if (remote.presupuesto) setPresupuesto(remote.presupuesto);
+        if (remote.deudas) setDeudas(remote.deudas);
+        if (remote.tdcs) setTdcs(remote.tdcs);
+        if (remote.metas) setMetas(remote.metas);
+        if (typeof remote.metas_pool === "number") setMetasPool(remote.metas_pool);
+      } else {
+        // Nube vacía → sembramos con lo que hay en este dispositivo
+        await Promise.all([
+          sbUpsert("txs", txs), sbUpsert("cfg", cfg), sbUpsert("accounts", accounts),
+          sbUpsert("cats", cats), sbUpsert("presupuesto", presupuesto), sbUpsert("deudas", deudas),
+          sbUpsert("tdcs", tdcs), sbUpsert("metas", metas), sbUpsert("metas_pool", metasPool),
+        ]);
+      }
+      hydrated.current = true;
+      setSyncStatus("ok");
+    })();
+    return () => { cancel = true; };
+  }, []);
+
+  // Cada pieza del estado se sube a la nube cuando cambia
+  useEffect(() => { queueSync("txs", txs); }, [txs]);
+  useEffect(() => { queueSync("cfg", cfg); }, [cfg]);
+  useEffect(() => { queueSync("accounts", accounts); }, [accounts]);
+  useEffect(() => { queueSync("cats", cats); }, [cats]);
+  useEffect(() => { queueSync("presupuesto", presupuesto); }, [presupuesto]);
+  useEffect(() => { queueSync("deudas", deudas); }, [deudas]);
+  useEffect(() => { queueSync("tdcs", tdcs); }, [tdcs]);
+  useEffect(() => { queueSync("metas", metas); }, [metas]);
+  useEffect(() => { queueSync("metas_pool", metasPool); }, [metasPool]);
 
   // Elimina un movimiento y revierte el saldo
   function eliminarMovimiento(txId) {
@@ -2345,6 +2443,15 @@ export default function App() {
           <div className="scr">
             <div className="hdr"><h1 style={{ fontSize: 30, fontWeight: 700 }}>Configuración</h1></div>
             <div style={{ padding: "0 20px", display: "flex", flexDirection: "column", gap: 20 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, background: C.surface, border: `1px solid ${syncStatus === "ok" ? C.green + "44" : syncStatus === "offline" ? C.red + "44" : C.border}`, borderRadius: 14, padding: "14px 16px" }}>
+                <span style={{ fontSize: 20 }}>{syncStatus === "ok" ? "☁️" : syncStatus === "offline" ? "⚠️" : "⏳"}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: syncStatus === "ok" ? C.green : syncStatus === "offline" ? C.red : C.textMid }}>
+                    {syncStatus === "ok" ? "Sincronizado con la nube" : syncStatus === "offline" ? "Sin conexión · guardando local" : "Conectando..."}
+                  </div>
+                  <div style={{ fontSize: 11, color: C.textDim, marginTop: 3 }}>Tus datos se respaldan en Supabase automáticamente.</div>
+                </div>
+              </div>
               {[
                 { title: "Perfil", fields: [{ l: "Nombre", k: "nombre", t: "text" }]},
                 { title: "Ingreso y tiempo", fields: [
