@@ -106,6 +106,8 @@ const INIT_PRESUPUESTO = {
 
 const INIT_DEUDAS = [];
 const INIT_TDCS = [];
+const INIT_METAS = []; // metas grandes por prioridad: { id, nombre, emoji, monto, tipo:"compra"|"deuda", deudaId, cuentaId }
+const INIT_METAS_POOL = 0; // dinero libre acumulado que llena las barras de metas
 
 const INIT_CFG = {
   ingreso_quincena: 0, horas_dia: 8, dias_semana: 5,
@@ -270,6 +272,7 @@ function TxForm({ cats, accounts, tdcs, presupuesto, onPagarCompromiso, cfg, rat
   const [tasaPrestamo, setTasaPrestamo] = useState("");
   const [porPagarMode, setPorPagarMode] = useState(false);
   const [compromisoSel, setCompromisoSel] = useState(null);
+  const [paraMetas, setParaMetas] = useState(false);
 
   const quincenaActual = getPeriodoActual().quincena;
   const pendientesQuincena = (presupuesto[`q${quincenaActual}`] || []).filter(i => !i.pagado);
@@ -323,6 +326,7 @@ function TxForm({ cats, accounts, tdcs, presupuesto, onPagarCompromiso, cfg, rat
       tdcDestId: tipo === "pago_tdc" ? tdcDestId : undefined,
       nombrePrestamo: tipo === "prestamo" ? nombrePrestamo : undefined,
       tasaPrestamo: tipo === "prestamo" ? (parseFloat(tasaPrestamo) || 0) : undefined,
+      paraMetas: tipo === "ingreso" ? paraMetas : undefined,
     });
     setSaving(false);
     onClose();
@@ -437,6 +441,17 @@ function TxForm({ cats, accounts, tdcs, presupuesto, onPagarCompromiso, cfg, rat
           )}
           {!catId && <span style={{ color: C.textDim, fontSize: 16 }}>›</span>}
         </button>
+        </>)}
+
+        {tipo === "ingreso" && !porPagarMode && (<>
+          {sectionTitle("¿Es dinero libre para metas?")}
+          <button onClick={() => setParaMetas(!paraMetas)} style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", background: paraMetas ? C.goldDim : "#141414", border: `1px solid ${paraMetas ? C.gold : C.border}`, borderRadius: 14, padding: "14px 16px", cursor: "pointer", marginBottom: 8 }}>
+            <span style={{ width: 24, height: 24, borderRadius: 7, border: `2px solid ${paraMetas ? C.gold : C.border}`, background: paraMetas ? C.gold : "transparent", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, color: "#000", flexShrink: 0 }}>{paraMetas ? "✓" : ""}</span>
+            <div style={{ flex: 1, textAlign: "left" }}>
+              <div style={{ fontSize: 14, color: paraMetas ? C.goldLight : C.text, fontWeight: 500 }}>💎 Ingreso libre (para metas)</div>
+              <div style={{ fontSize: 11, color: C.textDim }}>Se suma al disponible del tab Metas</div>
+            </div>
+          </button>
         </>)}
 
         {tipo === "prestamo" && (<>
@@ -1613,6 +1628,252 @@ function BabylonChat({ txs, deudas, tdcs, presupuesto, cfg, rate }) {
   );
 }
 
+// ── METAS TAB ─────────────────────────────────────────────────────────────────
+function MetasTab({ metas, setMetas, metasPool, setMetasPool, deudas, accounts, registrarMovimiento, rate, cfg }) {
+  const [showAdd, setShowAdd] = useState(false);
+  const [showPool, setShowPool] = useState(false);
+  const [poolMode, setPoolMode] = useState("add"); // add | set
+  const [poolInput, setPoolInput] = useState("");
+  const [confirmMeta, setConfirmMeta] = useState(null);
+  const [newM, setNewM] = useState({ nombre: "", emoji: "🎯", monto: "", tipo: "compra", deudaId: "", cuentaId: accounts[0]?.id || "nu_nom" });
+
+  // Cascada: el disponible llena las metas en orden de prioridad (índice = prioridad)
+  let restante = metasPool;
+  const metasCalc = metas.map(m => {
+    const cubierto = Math.min(Math.max(restante, 0), m.monto);
+    restante = restante - m.monto;
+    const pct = m.monto > 0 ? Math.min((cubierto / m.monto) * 100, 100) : 0;
+    return { ...m, cubierto, pct, listo: m.monto > 0 && cubierto >= m.monto, falta: Math.max(0, m.monto - cubierto) };
+  });
+  const totalMetas = metas.reduce((a, m) => a + m.monto, 0);
+  const sobra = Math.max(0, restante); // dinero libre que sobra tras cubrir todo
+
+  function move(idx, dir) {
+    const ni = idx + dir;
+    if (ni < 0 || ni >= metas.length) return;
+    setMetas(prev => { const arr = [...prev]; const [x] = arr.splice(idx, 1); arr.splice(ni, 0, x); return arr; });
+  }
+  function del(id) { setMetas(prev => prev.filter(m => m.id !== id)); }
+  function add() {
+    if (!newM.nombre || !newM.monto) return;
+    const meta = { id: `meta_${Date.now()}`, nombre: newM.nombre, emoji: newM.emoji, monto: parseFloat(newM.monto) || 0, tipo: newM.tipo, deudaId: newM.tipo === "deuda" ? newM.deudaId : "", cuentaId: newM.cuentaId };
+    setMetas(prev => [...prev, meta]);
+    setNewM({ nombre: "", emoji: "🎯", monto: "", tipo: "compra", deudaId: "", cuentaId: accounts[0]?.id || "nu_nom" });
+    setShowAdd(false);
+  }
+  function ajustarPool() {
+    const v = parseFloat(poolInput);
+    if (isNaN(v)) { setShowPool(false); setPoolInput(""); return; }
+    setMetasPool(prev => poolMode === "add" ? Math.max(0, prev + v) : Math.max(0, v));
+    setPoolInput("");
+    setShowPool(false);
+  }
+  function pagarMeta(m) {
+    const fecha = new Date().toISOString().split("T")[0];
+    const per = getPeriodoActual();
+    const cuenta = accounts.find(a => a.id === m.cuentaId);
+    registrarMovimiento({
+      id: `tx_meta_${m.id}_${Date.now()}`,
+      fecha, tipo: "gasto", monto: m.monto,
+      categoria: m.tipo === "deuda" ? "Pago de deuda (meta)" : `Meta: ${m.nombre}`,
+      subcategoria: "",
+      cuenta: cuenta?.nombre || m.cuentaId,
+      nota: `🎯 Meta cumplida: ${m.nombre}`,
+      quincena: per.quincena, mes: fecha.slice(0, 7),
+      catId: m.tipo === "deuda" ? "deudas" : "otros",
+      subId: m.tipo === "deuda" ? "deuda_pasiva" : "otros_general",
+      cuentaId: m.cuentaId,
+      deudaId: m.tipo === "deuda" && m.deudaId ? m.deudaId : undefined,
+      origen: "meta",
+    });
+    setMetasPool(prev => Math.max(0, prev - m.monto));
+    setMetas(prev => prev.filter(x => x.id !== m.id));
+    setConfirmMeta(null);
+  }
+
+  const inp = { background: "#141414", border: `1px solid ${C.border}`, borderRadius: 12, padding: "13px 14px", color: C.text, fontFamily: "'Sora',sans-serif", fontSize: 15, width: "100%", outline: "none" };
+
+  return (
+    <div className="scr">
+      <div className="hdr">
+        <h1 style={{ fontSize: 30, fontWeight: 700, marginBottom: 4 }}>Metas</h1>
+        <p style={{ fontSize: 13, color: C.textDim }}>Tu dinero libre, en orden de prioridad.</p>
+      </div>
+
+      <div style={{ padding: "0 20px" }}>
+        {/* Disponible card */}
+        <div className="card" style={{ marginBottom: 16, background: `${C.gold}06`, border: `1px solid ${C.gold}33` }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div>
+              <p style={{ fontSize: 10, color: C.gold, letterSpacing: ".12em", textTransform: "uppercase", fontWeight: 600, marginBottom: 6 }}>Disponible para metas</p>
+              <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 34, color: C.gold, fontWeight: 700, lineHeight: 1 }}>{fmt(metasPool)}</div>
+              <p style={{ fontSize: 12, color: C.textDim, marginTop: 8, lineHeight: 1.5 }}>
+                {metas.length === 0 ? "Agrega metas y este dinero las irá llenando." : sobra > 0 ? `Cubre todas tus metas. Sobran ${fmt(sobra)}.` : `Llenando prioridad #${(metasCalc.findIndex(m => !m.listo) + 1) || metas.length}.`}
+              </p>
+            </div>
+            <button onClick={() => { setPoolMode("add"); setShowPool(true); }} style={{ background: C.gold, border: "none", borderRadius: 10, padding: "9px 14px", color: "#000", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Sora',sans-serif", flexShrink: 0 }}>+ Abonar</button>
+          </div>
+          <button onClick={() => { setPoolMode("set"); setPoolInput(String(metasPool)); setShowPool(true); }} style={{ marginTop: 12, background: "none", border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px", width: "100%", color: C.textDim, fontSize: 12, cursor: "pointer", fontFamily: "'Sora',sans-serif" }}>Ajustar disponible manualmente</button>
+          <p style={{ fontSize: 11, color: C.textDim, marginTop: 10, lineHeight: 1.5 }}>💡 Al registrar un ingreso puedes marcarlo como "para metas" y se suma aquí solo.</p>
+        </div>
+
+        {/* Header lista */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <p className="sec" style={{ margin: 0 }}>Prioridades · {fmt(totalMetas)}</p>
+          <button onClick={() => setShowAdd(true)} style={{ background: C.gold, border: "none", borderRadius: 8, padding: "5px 12px", color: "#000", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'Sora',sans-serif" }}>+ Agregar</button>
+        </div>
+
+        {metas.length === 0 && (
+          <div className="card" style={{ padding: "32px 20px", textAlign: "center" }}>
+            <div style={{ fontSize: 32, marginBottom: 12 }}>🎯</div>
+            <p style={{ fontSize: 14, color: C.textDim }}>Sin metas todavía.</p>
+            <p style={{ fontSize: 12, color: C.textDim, marginTop: 4 }}>Agrega una deuda a liquidar o algo que quieras comprar.</p>
+          </div>
+        )}
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 16 }}>
+          {metasCalc.map((m, i) => {
+            const deuda = m.tipo === "deuda" ? deudas.find(d => d.id === m.deudaId) : null;
+            const barColor = m.listo ? C.green : C.gold;
+            return (
+              <div key={m.id} style={{ background: C.surface, border: `1px solid ${m.listo ? C.green + "55" : C.border}`, borderRadius: 16, padding: 16 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 2, flexShrink: 0 }}>
+                    <button onClick={() => move(i, -1)} disabled={i === 0} style={{ background: "none", border: "none", color: i === 0 ? "#2a2a2a" : C.textDim, fontSize: 12, cursor: i === 0 ? "default" : "pointer", lineHeight: 1, padding: 2 }}>▲</button>
+                    <button onClick={() => move(i, 1)} disabled={i === metas.length - 1} style={{ background: "none", border: "none", color: i === metas.length - 1 ? "#2a2a2a" : C.textDim, fontSize: 12, cursor: i === metas.length - 1 ? "default" : "pointer", lineHeight: 1, padding: 2 }}>▼</button>
+                  </div>
+                  <div style={{ width: 22, height: 22, borderRadius: 7, background: m.listo ? C.green : "#1a1a1a", color: m.listo ? "#000" : C.textDim, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, fontFamily: "'Space Mono',monospace", flexShrink: 0 }}>{i + 1}</div>
+                  <span style={{ fontSize: 22 }}>{m.emoji}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 15, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.nombre}</div>
+                    <div style={{ fontSize: 11, color: C.textDim }}>{m.tipo === "deuda" ? `💳 Abona a ${deuda?.nombre || "deuda"}` : "🛒 Compra"}</div>
+                  </div>
+                  <button onClick={() => del(m.id)} style={{ background: "none", border: `1px solid ${C.red}33`, borderRadius: 8, padding: "4px 8px", color: C.red, fontSize: 13, cursor: "pointer", flexShrink: 0, lineHeight: 1 }}>×</button>
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+                  <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 12, color: barColor, fontWeight: 700 }}>{fmt(m.cubierto)} / {fmt(m.monto)}</span>
+                  <span style={{ fontFamily: "'Space Mono',monospace", fontSize: 12, color: C.textDim }}>{m.pct.toFixed(0)}%</span>
+                </div>
+                <div className="ptk" style={{ height: 8 }}>
+                  <div className="ptf" style={{ width: `${Math.max(m.pct, 1)}%`, background: m.listo ? `linear-gradient(90deg, ${C.green}88, ${C.green})` : `linear-gradient(90deg, ${C.gold}66, ${C.gold})` }} />
+                </div>
+
+                {m.listo ? (
+                  <button onClick={() => setConfirmMeta(m)} style={{ marginTop: 12, background: C.green, color: "#000", border: "none", borderRadius: 12, padding: "13px", width: "100%", fontFamily: "'Sora',sans-serif", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
+                    ✓ {m.tipo === "deuda" ? "Pagar deuda" : "Comprar"} · {fmt(m.monto)}
+                  </button>
+                ) : (
+                  <p style={{ fontSize: 11, color: C.textDim, marginTop: 10 }}>Faltan <span style={{ color: C.gold, fontFamily: "'Space Mono',monospace" }}>{fmt(m.falta)}</span> · {toTime(m.falta, rate, cfg.horas_dia)} de trabajo</p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Modal abonar / ajustar pool */}
+      {showPool && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", backdropFilter: "blur(10px)", zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end", maxWidth: 430, left: "50%", transform: "translateX(-50%)", width: "100%" }} onClick={() => setShowPool(false)}>
+          <div style={{ background: "#111", borderRadius: "24px 24px 0 0", padding: "28px 20px 48px", border: `1px solid ${C.border}`, width: "100%" }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <h3 style={{ fontSize: 20, fontWeight: 700 }}>{poolMode === "add" ? "Abonar al disponible" : "Ajustar disponible"}</h3>
+              <button onClick={() => setShowPool(false)} style={{ background: "#1a1a1a", border: `1px solid ${C.border}`, borderRadius: "50%", width: 32, height: 32, color: C.textDim, fontSize: 16, cursor: "pointer" }}>✕</button>
+            </div>
+            <label style={{ fontSize: 11, color: C.textDim, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: ".06em" }}>{poolMode === "add" ? "¿Cuánto agregas?" : "Nuevo total disponible"}</label>
+            <input type="number" inputMode="decimal" autoFocus placeholder="0" value={poolInput} onChange={e => setPoolInput(e.target.value)} style={{ ...inp, fontFamily: "'Space Mono',monospace", fontSize: 24, textAlign: "center", marginBottom: 20 }} />
+            <button onClick={ajustarPool} style={{ background: C.gold, color: "#000", border: "none", borderRadius: 14, padding: "16px", fontFamily: "'Sora',sans-serif", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%" }}>{poolMode === "add" ? "Abonar" : "Guardar"}</button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal agregar meta */}
+      {showAdd && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", backdropFilter: "blur(10px)", zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end", maxWidth: 430, left: "50%", transform: "translateX(-50%)", width: "100%" }} onClick={() => setShowAdd(false)}>
+          <div style={{ background: "#111", borderRadius: "24px 24px 0 0", padding: "28px 20px 48px", border: `1px solid ${C.border}`, maxHeight: "85vh", overflowY: "auto", width: "100%" }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <h3 style={{ fontSize: 20, fontWeight: 700 }}>Nueva meta</h3>
+              <button onClick={() => setShowAdd(false)} style={{ background: "#1a1a1a", border: `1px solid ${C.border}`, borderRadius: "50%", width: 32, height: 32, color: C.textDim, fontSize: 16, cursor: "pointer" }}>✕</button>
+            </div>
+
+            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+              {[["compra", "🛒 Compra"], ["deuda", "💳 Deuda"]].map(([v, l]) => (
+                <button key={v} onClick={() => setNewM(p => ({ ...p, tipo: v, deudaId: "" }))} style={{ flex: 1, padding: "12px 4px", border: `1px solid ${newM.tipo === v ? C.gold : C.border}`, borderRadius: 12, background: newM.tipo === v ? C.goldDim : "#141414", color: newM.tipo === v ? C.goldLight : C.textDim, fontSize: 13, cursor: "pointer", fontFamily: "'Sora',sans-serif", fontWeight: 600 }}>{l}</button>
+              ))}
+            </div>
+
+            {newM.tipo === "deuda" && (
+              <div style={{ marginBottom: 16 }}>
+                {deudas.length === 0 ? (
+                  <p style={{ fontSize: 12, color: C.textDim, background: "#141414", border: `1px solid ${C.border}`, borderRadius: 12, padding: 14 }}>No tienes deudas registradas. Agrégalas en el tab Deudas, o usa el tipo "Compra".</p>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {deudas.map(d => (
+                      <button key={d.id} onClick={() => setNewM(p => ({ ...p, deudaId: d.id, nombre: p.nombre || `Liquidar ${d.nombre}`, monto: p.monto || String(d.saldo_actual), emoji: "💳" }))} style={{ display: "flex", alignItems: "center", gap: 10, background: newM.deudaId === d.id ? C.goldDim : "#141414", border: `1px solid ${newM.deudaId === d.id ? C.gold : C.border}`, borderRadius: 10, padding: "12px 14px", cursor: "pointer" }}>
+                        <span style={{ fontSize: 18 }}>{d.emoji}</span>
+                        <div style={{ flex: 1, textAlign: "left" }}>
+                          <div style={{ fontSize: 13, color: newM.deudaId === d.id ? C.goldLight : C.text }}>{d.nombre}</div>
+                          <div style={{ fontSize: 11, color: C.textDim }}>Debes {fmt(d.saldo_actual)}</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+              <input value={newM.emoji} onChange={e => setNewM(p => ({ ...p, emoji: e.target.value }))} style={{ ...inp, width: 58, textAlign: "center", fontSize: 24 }} placeholder="🎯" />
+              <input placeholder={newM.tipo === "deuda" ? "Nombre (ej: Liquidar moto)" : "Nombre (ej: Laptop nueva)"} value={newM.nombre} onChange={e => setNewM(p => ({ ...p, nombre: e.target.value }))} style={{ ...inp, flex: 1 }} />
+            </div>
+
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 11, color: C.textDim, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: ".06em" }}>Monto meta</label>
+              <input type="number" inputMode="decimal" placeholder="0" value={newM.monto} onChange={e => setNewM(p => ({ ...p, monto: e.target.value }))} style={{ ...inp, fontFamily: "'Space Mono',monospace", fontSize: 22, textAlign: "center" }} />
+              {newM.monto && <p style={{ fontSize: 12, color: C.gold, marginTop: 6, textAlign: "center", fontFamily: "'Space Mono',monospace" }}>= {toTime(parseFloat(newM.monto) || 0, rate, cfg.horas_dia)} de tu tiempo</p>}
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ fontSize: 11, color: C.textDim, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: ".06em" }}>¿De qué cuenta saldrá al pagar?</label>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {accounts.filter(a => a.tipo !== "Pasivo").map(a => (
+                  <button key={a.id} onClick={() => setNewM(p => ({ ...p, cuentaId: a.id }))} className={`chip ${newM.cuentaId === a.id ? "sel" : ""}`}>
+                    <span>{a.emoji}</span><span style={{ color: newM.cuentaId === a.id ? C.goldLight : C.text }}>{a.nombre}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <button onClick={add} style={{ background: (!newM.nombre || !newM.monto) ? "#1a1a1a" : C.gold, color: (!newM.nombre || !newM.monto) ? C.textDim : "#000", border: "none", borderRadius: 14, padding: "16px", fontFamily: "'Sora',sans-serif", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%" }}>Agregar meta</button>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmar pago de meta */}
+      {confirmMeta && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", backdropFilter: "blur(10px)", zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end", maxWidth: 430, left: "50%", transform: "translateX(-50%)", width: "100%" }} onClick={() => setConfirmMeta(null)}>
+          <div style={{ background: "#111", borderRadius: "24px 24px 0 0", padding: "28px 20px 48px", border: `1px solid ${C.border}`, width: "100%" }} onClick={e => e.stopPropagation()}>
+            <div style={{ textAlign: "center", marginBottom: 20 }}>
+              <div style={{ fontSize: 40, marginBottom: 10 }}>{confirmMeta.emoji}</div>
+              <h3 style={{ fontSize: 20, fontWeight: 700, marginBottom: 6 }}>{confirmMeta.tipo === "deuda" ? "Pagar deuda" : "Comprar"}: {confirmMeta.nombre}</h3>
+              <p style={{ fontFamily: "'Space Mono',monospace", fontSize: 28, color: C.green, fontWeight: 700 }}>{fmt(confirmMeta.monto)}</p>
+            </div>
+            <div style={{ background: "#0d0d0d", borderRadius: 12, padding: "14px", border: `1px solid ${C.border}`, marginBottom: 20 }}>
+              <p style={{ fontSize: 12, color: C.textDim, lineHeight: 1.6 }}>
+                Se registrará como gasto desde <b style={{ color: C.text }}>{accounts.find(a => a.id === confirmMeta.cuentaId)?.nombre || "tu cuenta"}</b>{confirmMeta.tipo === "deuda" ? ", abonando a tu deuda" : ""}. Se descontará del disponible y la meta desaparecerá.
+              </p>
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setConfirmMeta(null)} style={{ flex: 1, background: "#1a1a1a", color: C.textDim, border: `1px solid ${C.border}`, borderRadius: 14, padding: "16px", fontFamily: "'Sora',sans-serif", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>Cancelar</button>
+              <button onClick={() => pagarMeta(confirmMeta)} style={{ flex: 2, background: C.green, color: "#000", border: "none", borderRadius: 14, padding: "16px", fontFamily: "'Sora',sans-serif", fontSize: 15, fontWeight: 700, cursor: "pointer" }}>Confirmar</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── MAIN ─────────────────────────────────────────────────────────────────────
 export default function App() {
   const [tab, setTab] = useState("home");
@@ -1623,6 +1884,8 @@ export default function App() {
   const [presupuesto, setPresupuesto] = useState(() => loadFromStorage("fp_presupuesto", INIT_PRESUPUESTO));
   const [deudas, setDeudas] = useState(() => loadFromStorage("fp_deudas", INIT_DEUDAS));
   const [tdcs, setTdcs] = useState(() => loadFromStorage("fp_tdcs", INIT_TDCS));
+  const [metas, setMetas] = useState(() => loadFromStorage("fp_metas", INIT_METAS));
+  const [metasPool, setMetasPool] = useState(() => loadFromStorage("fp_metas_pool", INIT_METAS_POOL));
   const [showTx, setShowTx] = useState(false);
   const [editAccount, setEditAccount] = useState(null);
   const [editTx, setEditTx] = useState(null);
@@ -1649,6 +1912,8 @@ export default function App() {
   useEffect(() => { saveToStorage("fp_presupuesto", presupuesto); }, [presupuesto]);
   useEffect(() => { saveToStorage("fp_deudas", deudas); }, [deudas]);
   useEffect(() => { saveToStorage("fp_tdcs", tdcs); }, [tdcs]);
+  useEffect(() => { saveToStorage("fp_metas", metas); }, [metas]);
+  useEffect(() => { saveToStorage("fp_metas_pool", metasPool); }, [metasPool]);
 
   // Elimina un movimiento y revierte el saldo
   function eliminarMovimiento(txId) {
@@ -1662,6 +1927,10 @@ export default function App() {
       if (tx.tipo === "ingreso" && a.id === tx.cuentaId) saldo -= tx.monto;
       return { ...a, saldo };
     }));
+    // Si era un ingreso "para metas", revertir el disponible de metas
+    if (tx.tipo === "ingreso" && tx.paraMetas) {
+      setMetasPool(prev => Math.max(0, prev - tx.monto));
+    }
   }
 
   function eliminarMovimientoPorPres(presId) {
@@ -1756,6 +2025,11 @@ export default function App() {
         const nuevoSaldo = Math.max(0, d.saldo_actual - abonoCapital);
         return { ...d, saldo_actual: nuevoSaldo };
       }));
+    }
+
+    // INGRESO marcado "para metas": suma al disponible de metas
+    if (tx.tipo === "ingreso" && tx.paraMetas) {
+      setMetasPool(prev => prev + tx.monto);
     }
   }
 
@@ -2014,6 +2288,7 @@ export default function App() {
         {/* PLAN */}
         {tab === "plan" && <PlanTab presupuesto={presupuesto} setPresupuesto={setPresupuesto} txs={txs} registrarMovimiento={registrarMovimiento} eliminarMovimientoPorPres={eliminarMovimientoPorPres} deudas={deudas} cfg={cfg} rate={rate} />}
         {tab === "deudas" && <DeudasTab deudas={deudas} setDeudas={setDeudas} tdcs={tdcs} setTdcs={setTdcs} rate={rate} cfg={cfg} />}
+        {tab === "metas" && <MetasTab metas={metas} setMetas={setMetas} metasPool={metasPool} setMetasPool={setMetasPool} deudas={deudas} accounts={accounts} registrarMovimiento={registrarMovimiento} rate={rate} cfg={cfg} />}
 
         {/* HISTORIAL */}
         {tab === "historial" && (
@@ -2235,7 +2510,7 @@ export default function App() {
 
         {/* TABBAR */}
         <nav className="tabbar">
-          {[["home","⬡","Inicio"],["deudas","⛓","Deudas"],["plan","▤","Plan"],["historial","≡","Historial"],["config","⚙","Config"]].map(([id,icon,label]) => (
+          {[["home","⬡","Inicio"],["deudas","⛓","Deudas"],["plan","▤","Plan"],["metas","◎","Metas"],["historial","≡","Historial"],["config","⚙","Config"]].map(([id,icon,label]) => (
             <button key={id} className={`ti ${tab === id ? "on" : ""}`} onClick={() => setTab(id)}>
               <span className="ticon">{icon}</span>
               <span className="tlbl">{label}</span>
