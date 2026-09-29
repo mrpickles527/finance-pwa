@@ -241,11 +241,15 @@ const WEBHOOK_URL = "https://hook.eu1.make.com/1tgq5dkauhk7of5julki7g132mciupq4"
 
 async function sendToMake(payload) {
   try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 6000); // no esperar más de 6s a Make
     await fetch(WEBHOOK_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
+      signal: ctrl.signal,
     });
+    clearTimeout(t);
     return true;
   } catch (e) {
     console.error("Make error:", e);
@@ -350,7 +354,7 @@ function TxForm({ cats, accounts, tdcs, presupuesto, onPagarCompromiso, cfg, rat
       mes: fecha.slice(0, 7),
     };
 
-    await sendToMake(tx);
+    sendToMake(tx); // "de reojo" — no bloquea el guardado si Make anda lento
 
     onSave({
       ...tx,
