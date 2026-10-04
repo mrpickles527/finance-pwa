@@ -354,7 +354,8 @@ function TxForm({ cats, accounts, tdcs, presupuesto, onPagarCompromiso, cfg, rat
       mes: fecha.slice(0, 7),
     };
 
-    sendToMake(tx); // "de reojo" — no bloquea el guardado si Make anda lento
+    // (El envío a Make/Sheets se quitó: ahora los datos viven en Supabase.
+    //  Se reactivará cuando Babylon lea directo de Supabase.)
 
     onSave({
       ...tx,
@@ -374,7 +375,7 @@ function TxForm({ cats, accounts, tdcs, presupuesto, onPagarCompromiso, cfg, rat
   const QUICK = [100, 200, 344, 500, 800, 1000, 1600, 2100];
 
   const sectionTitle = (txt) => (
-    <p style={{ fontSize: 11, color: C.textDim, letterSpacing: ".08em", textTransform: "uppercase", fontWeight: 600, marginBottom: 10, marginTop: 20 }}>{txt}</p>
+    <p style={{ fontSize: 12.5, color: C.textMid, fontWeight: 500, marginBottom: 12, marginTop: 26, letterSpacing: ".01em" }}>{txt}</p>
   );
 
   const fieldRow = (icon, label, value, onClick, accent) => (
@@ -391,14 +392,14 @@ function TxForm({ cats, accounts, tdcs, presupuesto, onPagarCompromiso, cfg, rat
   return (
     <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: C.bg, zIndex: 999, display: "flex", flexDirection: "column", animation: "slideUp .28s cubic-bezier(.32,0,.32,1) both", maxWidth: 430, margin: "0 auto" }}>
       {/* Top bar */}
-      <div style={{ padding: "52px 20px 0", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-        <button onClick={onClose} style={{ width: 38, height: 38, borderRadius: "50%", background: "#161616", border: `1px solid ${C.border}`, color: C.text, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
-        <span style={{ fontSize: 15, fontWeight: 700, color: C.text }}>Nuevo movimiento</span>
-        <button onClick={save} disabled={saving} style={{ background: tipoColor, border: "none", borderRadius: 12, padding: "10px 18px", color: "#000", fontFamily: "'Sora',sans-serif", fontWeight: 700, fontSize: 14, cursor: "pointer", opacity: (!montoParsed || saving) ? 0.35 : 1 }}>{saving ? "..." : "Guardar"}</button>
+      <div style={{ padding: "52px 24px 0", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+        <button onClick={onClose} style={{ width: 38, height: 38, borderRadius: "50%", background: "#141414", border: `1px solid ${C.border}`, color: C.textMid, fontSize: 15, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+        <span style={{ fontSize: 14, fontWeight: 500, color: C.textMid, letterSpacing: ".02em" }}>Nuevo movimiento</span>
+        <button onClick={save} disabled={saving} style={{ background: tipoColor, border: "none", borderRadius: 100, padding: "10px 20px", color: "#000", fontFamily: "'Sora',sans-serif", fontWeight: 700, fontSize: 14, cursor: "pointer", opacity: (!montoParsed || saving) ? 0.3 : 1, transition: "opacity .2s" }}>{saving ? "..." : "Guardar"}</button>
       </div>
 
       {/* Tipo selector - scrollable row */}
-      <div style={{ padding: "16px 20px 0", flexShrink: 0 }}>
+      <div style={{ padding: "22px 24px 0", flexShrink: 0 }}>
         <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
           {[["gasto","💸 Gasto",C.gold],["ingreso","⬆️ Ingreso",C.green],["prestamo","🏦 Préstamo",C.red],["pago_tdc","💳 Pago TDC",C.blue],["transferencia","↔ Transfer",C.purple]].map(([v,l,col]) => (
             <button key={v} onClick={() => { setTipo(v); setCatId(""); setSubId(""); }} style={{ padding: "10px 16px", border: `1px solid ${tipo === v ? col : C.border}`, borderRadius: 100, fontFamily: "'Sora',sans-serif", fontSize: 13, fontWeight: 600, cursor: "pointer", background: tipo === v ? col : "#141414", color: tipo === v ? "#000" : C.textDim, transition: "all .2s", whiteSpace: "nowrap", flexShrink: 0 }}>{l}</button>
@@ -407,34 +408,33 @@ function TxForm({ cats, accounts, tdcs, presupuesto, onPagarCompromiso, cfg, rat
       </div>
 
       {/* Amount hero */}
-      <div style={{ padding: "20px 20px 0", flexShrink: 0 }}>
-        <div style={{ background: "#0d0d0d", border: `1px solid ${tipoColor}33`, borderRadius: 20, padding: "20px 20px 16px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-            <span style={{ fontSize: 18, color: tipoColor, fontFamily: "'Space Mono',monospace", fontWeight: 700 }}>MXN</span>
-            <input
-              type="number" inputMode="decimal" autoFocus placeholder="0"
-              value={monto} onChange={e => setMonto(e.target.value)}
-              style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: tipoColor, fontFamily: "'Space Mono',monospace", fontSize: 42, fontWeight: 700, minWidth: 0 }}
-            />
+      <div style={{ padding: "28px 24px 4px", flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+          <span style={{ fontSize: 13, color: C.textDim, fontFamily: "'Space Mono',monospace", fontWeight: 400, letterSpacing: ".05em" }}>MXN</span>
+          <input
+            type="number" inputMode="decimal" autoFocus placeholder="0"
+            value={monto} onChange={e => setMonto(e.target.value)}
+            style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: tipoColor, fontFamily: "'Space Mono',monospace", fontSize: 54, fontWeight: 700, minWidth: 0, letterSpacing: "-.02em", lineHeight: 1 }}
+          />
+        </div>
+        <div style={{ height: 1.5, borderRadius: 2, background: `linear-gradient(90deg, ${tipoColor}, ${tipoColor}00)`, marginTop: 10 }} />
+        {tiempoStr && (
+          <div style={{ fontSize: 13, color: C.textDim, fontFamily: "'Space Mono',monospace", marginTop: 12 }}>
+            ⏱ <span style={{ color: tipoColor }}>{tiempoStr}</span> de tu vida
           </div>
-          {tiempoStr && (
-            <div style={{ fontSize: 13, color: C.textDim, fontFamily: "'Space Mono',monospace" }}>
-              ⏱ <span style={{ color: tipoColor }}>{tiempoStr}</span> de tu vida
-            </div>
-          )}
-          {/* Quick amounts */}
-          <div style={{ display: "flex", gap: 6, marginTop: 14, flexWrap: "wrap" }}>
-            {QUICK.map(v => (
-              <button key={v} onClick={() => setMonto(v.toString())} style={{ padding: "5px 10px", background: "#1a1a1a", border: `1px solid ${monto === String(v) ? tipoColor : C.border}`, borderRadius: 8, color: monto === String(v) ? tipoColor : C.textDim, fontFamily: "'Space Mono',monospace", fontSize: 12, cursor: "pointer" }}>
-                {fmt(v)}
-              </button>
-            ))}
-          </div>
+        )}
+        {/* Quick amounts */}
+        <div style={{ display: "flex", gap: 7, marginTop: 16, flexWrap: "wrap" }}>
+          {QUICK.map(v => (
+            <button key={v} onClick={() => setMonto(v.toString())} style={{ padding: "6px 13px", background: monto === String(v) ? `${tipoColor}1f` : "transparent", border: `1px solid ${monto === String(v) ? tipoColor : C.border}`, borderRadius: 100, color: monto === String(v) ? tipoColor : C.textMid, fontFamily: "'Space Mono',monospace", fontSize: 12, cursor: "pointer", transition: "all .15s" }}>
+              {fmt(v)}
+            </button>
+          ))}
         </div>
       </div>
 
       {/* Scrollable fields */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "4px 20px 0" }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: "4px 24px 8px" }}>
 
         {tipo === "gasto" && pendientesQuincena.length > 0 && (<>
           {sectionTitle("¿Es un compromiso del plan?")}
@@ -1942,7 +1942,7 @@ export default function App() {
   }
 
   function saveAccountBalance() {
-    setAccounts(prev => prev.map(a => a.id === editAccount.id ? { ...a, saldo: parseFloat(editAccount.saldo) || 0 } : a));
+    setAccounts(prev => prev.map(a => a.id === editAccount.id ? { ...a, nombre: editAccount.nombre || a.nombre, emoji: editAccount.emoji || a.emoji, saldo: parseFloat(editAccount.saldo) || 0 } : a));
     setEditAccount(null);
   }
 
@@ -2527,8 +2527,15 @@ export default function App() {
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", backdropFilter: "blur(10px)", zIndex: 200, display: "flex", flexDirection: "column", justifyContent: "flex-end", maxWidth: 430, left: "50%", transform: "translateX(-50%)", width: "100%" }} onClick={() => setEditAccount(null)}>
             <div style={{ background: "#111", borderRadius: "24px 24px 0 0", padding: "28px 20px 48px", border: `1px solid ${C.border}`, width: "100%" }} onClick={e => e.stopPropagation()}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                <h3 style={{ fontSize: 20, fontWeight: 700 }}>{editAccount.emoji} {editAccount.nombre}</h3>
+                <h3 style={{ fontSize: 20, fontWeight: 700 }}>Editar cuenta</h3>
                 <button onClick={() => setEditAccount(null)} style={{ background: "#1a1a1a", border: `1px solid ${C.border}`, borderRadius: "50%", width: 32, height: 32, color: C.textDim, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+              </div>
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ fontSize: 11, color: C.textDim, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: ".06em" }}>Nombre</label>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <input value={editAccount.emoji} onChange={e => setEditAccount(p => ({ ...p, emoji: e.target.value }))} style={{ background: "#141414", border: `1px solid ${C.border}`, borderRadius: 12, padding: "13px", color: C.text, fontSize: 24, width: 58, outline: "none", textAlign: "center" }} />
+                  <input value={editAccount.nombre} onChange={e => setEditAccount(p => ({ ...p, nombre: e.target.value }))} style={{ background: "#141414", border: `1px solid ${C.border}`, borderRadius: 12, padding: "13px 14px", color: C.text, fontFamily: "'Sora',sans-serif", fontSize: 15, flex: 1, outline: "none" }} placeholder="Nombre de la cuenta" />
+                </div>
               </div>
               <div style={{ marginBottom: 20 }}>
                 <label style={{ fontSize: 11, color: C.textDim, display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: ".06em" }}>Saldo actual</label>
@@ -2538,7 +2545,7 @@ export default function App() {
                 </div>
                 <p style={{ fontSize: 12, color: C.textDim, marginTop: 8, textAlign: "center" }}>Toca ± para saldo negativo (sobregiro o deuda en la cuenta).</p>
               </div>
-              <button onClick={saveAccountBalance} style={{ background: C.gold, color: "#000", border: "none", borderRadius: 14, padding: "16px", fontFamily: "'Sora',sans-serif", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%" }}>Guardar saldo</button>
+              <button onClick={saveAccountBalance} style={{ background: C.gold, color: "#000", border: "none", borderRadius: 14, padding: "16px", fontFamily: "'Sora',sans-serif", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%" }}>Guardar cambios</button>
             </div>
           </div>
         )}
